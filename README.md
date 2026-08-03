@@ -32,4 +32,4 @@ This initial commit establishes the project and security boundaries. It does not
 
 ## Safe connection check
 
-`GET /api/health/supabase` verifies that the public Supabase configuration is present and that the REST API accepts the publishable key. The response never includes project URLs, keys, tokens, error bodies, or database content. Vercel builds fail when required application environment variables are absent; local and generic CI builds may run without hosted credentials.
+`GET /api/health/supabase` verifies project reachability and publishable-key acceptance separately. The response includes only a diagnostic category and upstream HTTP status; it never includes project URLs, keys, tokens, error bodies, or database content. Vercel builds fail when required application environment variables are absent; local and generic CI builds may run without hosted credentials.
