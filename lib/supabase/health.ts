@@ -18,7 +18,6 @@ export async function checkSupabaseHealth(): Promise<SupabaseHealth> {
       method: "GET",
       headers: {
         apikey: key,
-        Authorization: `Bearer ${key}`,
       },
       cache: "no-store",
       signal: AbortSignal.timeout(5000),
