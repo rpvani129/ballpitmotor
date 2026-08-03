@@ -29,3 +29,7 @@ Never commit `.env.local`, service-role keys, access tokens, or production crede
 ## Current status
 
 This initial commit establishes the project and security boundaries. It does not apply a production migration or include secrets.
+
+## Safe connection check
+
+`GET /api/health/supabase` verifies that the public Supabase configuration is present and that the REST API is reachable. The response never includes project URLs, keys, tokens, or database content. Vercel builds fail when required application environment variables are absent; local and generic CI builds may run without hosted credentials.
