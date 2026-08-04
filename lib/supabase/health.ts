@@ -1,7 +1,13 @@
 export type SupabaseHealth = {
   configured: boolean;
   reachable: boolean;
-  diagnostic: "connected" | "missing_configuration" | "invalid_url" | "project_unreachable" | "publishable_key_rejected";
+  diagnostic:
+    | "connected"
+    | "missing_configuration"
+    | "invalid_url"
+    | "project_unreachable"
+    | "publishable_key_rejected"
+    | "project_response_error";
   upstreamStatus?: number;
   checkedAt: string;
 };
@@ -27,23 +33,7 @@ export async function checkSupabaseHealth(): Promise<SupabaseHealth> {
   }
 
   try {
-    const healthResponse = await fetch(`${baseUrl}/auth/v1/health`, {
-      method: "GET",
-      cache: "no-store",
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (!healthResponse.ok) {
-      return {
-        configured: true,
-        reachable: false,
-        diagnostic: "project_unreachable",
-        upstreamStatus: healthResponse.status,
-        checkedAt,
-      };
-    }
-
-    const keyResponse = await fetch(`${baseUrl}/auth/v1/settings`, {
+    const response = await fetch(`${baseUrl}/auth/v1/settings`, {
       method: "GET",
       headers: {
         apikey: key,
@@ -52,17 +42,33 @@ export async function checkSupabaseHealth(): Promise<SupabaseHealth> {
       signal: AbortSignal.timeout(5000),
     });
 
-    if (!keyResponse.ok) {
+    if (response.status === 401 || response.status === 403) {
       return {
         configured: true,
         reachable: false,
         diagnostic: "publishable_key_rejected",
-        upstreamStatus: keyResponse.status,
+        upstreamStatus: response.status,
         checkedAt,
       };
     }
 
-    return { configured: true, reachable: true, diagnostic: "connected", upstreamStatus: 200, checkedAt };
+    if (!response.ok) {
+      return {
+        configured: true,
+        reachable: true,
+        diagnostic: "project_response_error",
+        upstreamStatus: response.status,
+        checkedAt,
+      };
+    }
+
+    return {
+      configured: true,
+      reachable: true,
+      diagnostic: "connected",
+      upstreamStatus: response.status,
+      checkedAt,
+    };
   } catch {
     return { configured: true, reachable: false, diagnostic: "project_unreachable", checkedAt };
   }
