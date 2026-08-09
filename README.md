@@ -26,9 +26,19 @@ Never commit `.env.local`, service-role keys, access tokens, or production crede
 3. Link a Supabase project locally and apply migrations only after review.
 4. Configure Supabase Auth redirect URLs for the Vercel preview URL and final Grid domain.
 
-## Current status
+## Current MVP status
 
-This initial commit establishes the project and security boundaries. It does not apply a production migration or include secrets.
+The private vertical slice is implemented:
+
+- Supabase email/password authentication and protected application routes
+- Ball Pit Motorsports workspace onboarding with starter vehicles
+- Event Index creation with vehicle, driver, team, track, organization and consumables
+- Automatic event-level weather retrieval by track and date
+- Session entry keyed to Event ID, with automatic fastest-session calculation
+- Versioned pre-event safety checklist
+- Responsive Ball Pit/Drive North Texas visual system
+
+The production Supabase schema includes tenant-aware events, sessions and checklist records with row-level security. Historical Google Sheets import remains the next migration milestone.
 
 ## Safe connection check
 

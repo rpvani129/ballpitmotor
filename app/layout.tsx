@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "The Grid | Ball Pit Motorsports",
-  description: "The motorsports operating system by Ball Pit Motorsports.",
+  description: "Track events, sessions, vehicles and checklists—handled by Ball Pit Motorsports.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
