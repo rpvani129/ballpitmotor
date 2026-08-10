@@ -1,11 +1,15 @@
 import { createEvent } from "@/app/actions";
-import { TRACKS } from "@/lib/grid";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function NewEventPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const query = await searchParams;
   const supabase = await createClient();
-  const { data: vehicles } = await supabase.from("vehicles").select("id,name,business_id").eq("status", "active").order("name");
+  const [{ data: vehicles }, { data: tracks }, { data: tires }, { data: pads }] = await Promise.all([
+    supabase.from("vehicles").select("id,name,business_id").eq("status", "active").order("name"),
+    supabase.from("tracks").select("id,name,short_name,track_configurations(id,name,is_active)").eq("is_active", true).order("name"),
+    supabase.from("tire_sets").select("id,business_id,vehicle_id").eq("status", "active").order("business_id"),
+    supabase.from("pad_sets").select("id,business_id,vehicle_id,axle").eq("status", "active").order("business_id"),
+  ]);
   return (
     <main className="dashboard-main">
       <section className="page-title"><p className="eyebrow">EVENT-FIRST WORKFLOW</p><h1>Create event</h1><p>Event Index owns the day. Sessions inherit its car, driver, track, organization, weather and consumables.</p></section>
@@ -26,17 +30,17 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
         <section className="form-section">
           <div className="form-section-number">02</div><div className="form-section-copy"><p className="eyebrow">WHERE</p><h2>Track</h2></div>
           <div className="form-grid">
-            <label>Track<select name="track_name" required><option value="">Select track</option>{TRACKS.map((t) => <option key={t.name}>{t.name}</option>)}</select></label>
-            <label>Configuration<select name="configuration_name" required><option value="">Select configuration</option>{TRACKS.map((t) => <optgroup label={t.shortName} key={t.name}>{t.configurations.map((c) => <option key={`${t.name}-${c}`}>{c}</option>)}</optgroup>)}</select></label>
+            <label>Track<select name="track_id" required><option value="">Select track</option>{tracks?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+            <label>Configuration<select name="configuration_id" required><option value="">Select configuration</option>{tracks?.map((t) => <optgroup label={t.short_name ?? t.name} key={t.id}>{t.track_configurations?.filter((c: { is_active: boolean }) => c.is_active).map((c: { id: string; name: string }) => <option value={c.id} key={c.id}>{c.name}</option>)}</optgroup>)}</select></label>
           </div>
           <p className="form-note">Weather is captured automatically from the selected track and date.</p>
         </section>
         <section className="form-section">
           <div className="form-section-number">03</div><div className="form-section-copy"><p className="eyebrow">WHAT&apos;S ON THE CAR</p><h2>Consumables</h2></div>
           <div className="form-grid three">
-            <label>Tire Set ID<input name="tire_set_business_id" placeholder="GB-TIRE-007" /></label>
-            <label>Front Pad ID<input name="front_pad_set_business_id" placeholder="GB-FPAD-004" /></label>
-            <label>Rear Pad ID<input name="rear_pad_set_business_id" placeholder="GB-RPAD-002" /></label>
+            <label>Tire set<select name="tire_set_id"><option value="">Not assigned</option>{tires?.map((x) => <option value={x.id} key={x.id}>{x.business_id}</option>)}</select></label>
+            <label>Front pads<select name="front_pad_set_id"><option value="">Not assigned</option>{pads?.filter((x) => x.axle === "front").map((x) => <option value={x.id} key={x.id}>{x.business_id}</option>)}</select></label>
+            <label>Rear pads<select name="rear_pad_set_id"><option value="">Not assigned</option>{pads?.filter((x) => x.axle === "rear").map((x) => <option value={x.id} key={x.id}>{x.business_id}</option>)}</select></label>
             <label className="span-3">Notes<textarea name="notes" rows={3} placeholder="Setup, goals, guests or anything worth remembering." /></label>
           </div>
         </section>

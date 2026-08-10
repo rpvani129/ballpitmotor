@@ -24,6 +24,9 @@ type Event = {
   tire_set_business_id: string | null;
   front_pad_set_business_id: string | null;
   rear_pad_set_business_id: string | null;
+  tire_sets: { business_id: string } | null;
+  front_pad_sets: { business_id: string } | null;
+  rear_pad_sets: { business_id: string } | null;
   notes: string | null;
   vehicle_id: string | null;
   vehicles: { name: string } | null;
@@ -50,7 +53,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const query = await searchParams;
   const supabase = await createClient();
   const [{ data: rawEvent }, { data: rawSessions }, { data: rawRun }] = await Promise.all([
-    supabase.from("events").select("*,vehicles(name)").eq("id", id).single(),
+    supabase.from("events").select("*,vehicles(name),tire_sets!events_tire_set_fkey(business_id),front_pad_sets:pad_sets!events_front_pad_set_fkey(business_id),rear_pad_sets:pad_sets!events_rear_pad_set_fkey(business_id)").eq("id", id).single(),
     supabase.from("sessions").select("id,session_number,started_at,best_lap_ms,is_fastest,source_url,notes").eq("event_id", id).order("session_number"),
     supabase.from("checklist_runs").select("id,status,template_snapshot").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -106,7 +109,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <h2>{event.conditions ?? "Weather pending"}</h2>
             <dl><div><dt>Track</dt><dd>{event.track_condition ?? "—"}</dd></div><div><dt>Wind</dt><dd>{event.wind_speed_mph != null ? `${event.wind_speed_mph.toFixed(1)} mph` : "—"}</dd></div><div><dt>Humidity</dt><dd>{event.humidity_pct != null ? `${event.humidity_pct.toFixed(0)}%` : "—"}</dd></div><div><dt>Rain</dt><dd>{event.precipitation_in != null ? `${event.precipitation_in.toFixed(2)} in` : "—"}</dd></div></dl>
           </section>
-          <section className="setup-card"><p className="eyebrow">ON THE CAR</p><h2>Event setup</h2><dl><div><dt>Tires</dt><dd>{event.tire_set_business_id ?? "—"}</dd></div><div><dt>Front pads</dt><dd>{event.front_pad_set_business_id ?? "—"}</dd></div><div><dt>Rear pads</dt><dd>{event.rear_pad_set_business_id ?? "—"}</dd></div></dl></section>
+          <section className="setup-card"><p className="eyebrow">ON THE CAR</p><h2>Event setup</h2><dl><div><dt>Tires</dt><dd>{event.tire_sets?.business_id ?? event.tire_set_business_id ?? "—"}</dd></div><div><dt>Front pads</dt><dd>{event.front_pad_sets?.business_id ?? event.front_pad_set_business_id ?? "—"}</dd></div><div><dt>Rear pads</dt><dd>{event.rear_pad_sets?.business_id ?? event.rear_pad_set_business_id ?? "—"}</dd></div></dl></section>
         </aside>
       </div>
 

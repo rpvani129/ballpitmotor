@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
 export async function login(formData: FormData) {
@@ -21,4 +22,21 @@ export async function signup(formData: FormData) {
   });
   if (error) redirect("/login?error=signup");
   redirect("/login?message=check-email");
+}
+
+export async function signInWithGoogle() {
+  const headerStore = await headers();
+  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+  const protocol = headerStore.get("x-forwarded-proto") ?? "https";
+
+  if (!host) redirect("/login?error=oauth");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${protocol}://${host}/auth/callback` },
+  });
+
+  if (error || !data.url) redirect("/login?error=oauth");
+  redirect(data.url);
 }

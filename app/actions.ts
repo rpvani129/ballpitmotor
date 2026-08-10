@@ -43,6 +43,23 @@ export async function createBallPitWorkspace() {
     { workspace_id: workspaceId, business_id: "LB", name: "Low Ball" },
   ]);
 
+  for (const track of TRACKS) {
+    const { data: createdTrack } = await supabase.from("tracks").insert({
+      workspace_id: workspaceId,
+      name: track.name,
+      short_name: track.shortName,
+      latitude: track.latitude,
+      longitude: track.longitude,
+    }).select("id").single();
+    if (createdTrack) {
+      await supabase.from("track_configurations").insert(track.configurations.map((name) => ({
+        workspace_id: workspaceId,
+        track_id: createdTrack.id,
+        name,
+      })));
+    }
+  }
+
   const { data: template } = await supabase
     .from("checklist_templates")
     .insert({ workspace_id: workspaceId, name: "Pre-Event Safety", version: 1 })
@@ -85,26 +102,175 @@ export async function createVehicle(formData: FormData) {
   revalidatePath("/dashboard/vehicles");
 }
 
+export async function updateVehicle(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  if (!membership || !vehicleId) redirect("/dashboard/vehicles");
+  const optionalInteger = (name: string) => {
+    const value = String(formData.get(name) ?? "").trim();
+    return value ? Number(value) : null;
+  };
+  const text = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const { error } = await supabase.from("vehicles").update({
+    name: String(formData.get("name") ?? "").trim(),
+    status: String(formData.get("status") ?? "active"),
+    year: optionalInteger("year"),
+    make: text("make"),
+    model: text("model"),
+    trim: text("trim"),
+    race_number: text("race_number"),
+    competition_class: text("competition_class"),
+    description: text("description"),
+    wiki_url: text("wiki_url"),
+    image_url: text("image_url"),
+    current_odometer_miles: optionalInteger("current_odometer_miles"),
+    acquired_on: text("acquired_on"),
+  }).eq("workspace_id", membership.workspace_id).eq("id", vehicleId);
+  if (error) redirect(`/dashboard/vehicles/${vehicleId}?error=vehicle`);
+  revalidatePath(`/dashboard/vehicles/${vehicleId}`);
+  revalidatePath("/dashboard/vehicles");
+}
+
+export async function addMaintenanceRecord(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  if (!membership || !vehicleId) redirect("/dashboard/vehicles");
+  const integer = (name: string) => String(formData.get(name) ?? "").trim() ? Number(formData.get(name)) : null;
+  const text = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const { error } = await supabase.from("maintenance_records").insert({
+    workspace_id: membership.workspace_id,
+    vehicle_id: vehicleId,
+    service_date: String(formData.get("service_date") ?? ""),
+    category: String(formData.get("category") ?? "Maintenance"),
+    title: String(formData.get("title") ?? "").trim(),
+    description: text("description"),
+    odometer_miles: integer("odometer_miles"),
+    vendor: text("vendor"),
+    cost: integer("cost"),
+    next_due_date: text("next_due_date"),
+    next_due_miles: integer("next_due_miles"),
+    source_url: text("source_url"),
+  });
+  if (error) redirect(`/dashboard/vehicles/${vehicleId}?error=maintenance`);
+  revalidatePath(`/dashboard/vehicles/${vehicleId}`);
+}
+
+export async function createTireSet(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  if (!membership) redirect("/dashboard");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  const text = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const { error } = await supabase.from("tire_sets").insert({
+    workspace_id: membership.workspace_id,
+    vehicle_id: vehicleId,
+    business_id: String(formData.get("business_id") ?? "").trim().toUpperCase(),
+    manufacturer: String(formData.get("manufacturer") ?? "").trim(),
+    model: String(formData.get("model") ?? "").trim(),
+    size: text("size"), compound: text("compound"), purchased_on: text("purchased_on"),
+    starting_sessions: text("starting_sessions") ? Number(text("starting_sessions")) : null,
+    notes: text("notes"),
+  });
+  if (error) redirect("/dashboard/consumables?error=tire");
+  revalidatePath("/dashboard/consumables");
+}
+
+export async function createPadSet(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  if (!membership) redirect("/dashboard");
+  const text = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const { error } = await supabase.from("pad_sets").insert({
+    workspace_id: membership.workspace_id,
+    vehicle_id: String(formData.get("vehicle_id") ?? ""),
+    business_id: String(formData.get("business_id") ?? "").trim().toUpperCase(),
+    axle: String(formData.get("axle") ?? ""),
+    manufacturer: String(formData.get("manufacturer") ?? "").trim(),
+    model: String(formData.get("model") ?? "").trim(),
+    compound: text("compound"), purchased_on: text("purchased_on"),
+    starting_sessions: text("starting_sessions") ? Number(text("starting_sessions")) : null,
+    notes: text("notes"),
+  });
+  if (error) redirect("/dashboard/consumables?error=pad");
+  revalidatePath("/dashboard/consumables");
+}
+
+export async function createTrack(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  if (!membership) redirect("/dashboard");
+  const text = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const numeric = (name: string) => text(name) ? Number(text(name)) : null;
+  const { data: track, error } = await supabase.from("tracks").insert({
+    workspace_id: membership.workspace_id,
+    name: String(formData.get("name") ?? "").trim(), short_name: text("short_name"),
+    address: text("address"), city: text("city"), region: text("region"),
+    latitude: numeric("latitude"), longitude: numeric("longitude"), website_url: text("website_url"),
+  }).select("id").single();
+  if (error || !track) redirect("/dashboard/tracks?error=track");
+  const configuration = text("configuration_name");
+  if (configuration) await supabase.from("track_configurations").insert({ workspace_id: membership.workspace_id, track_id: track.id, name: configuration });
+  revalidatePath("/dashboard/tracks");
+}
+
+export async function updateTrack(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const trackId = String(formData.get("track_id") ?? "");
+  if (!membership || !trackId) redirect("/dashboard/tracks");
+  const text = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const numeric = (name: string) => text(name) ? Number(text(name)) : null;
+  await supabase.from("tracks").update({
+    name: String(formData.get("name") ?? "").trim(), short_name: text("short_name"),
+    address: text("address"), city: text("city"), region: text("region"),
+    latitude: numeric("latitude"), longitude: numeric("longitude"), website_url: text("website_url"),
+  }).eq("workspace_id", membership.workspace_id).eq("id", trackId);
+  revalidatePath("/dashboard/tracks");
+}
+
+export async function addTrackConfiguration(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  if (!membership) redirect("/dashboard");
+  const { error } = await supabase.from("track_configurations").insert({
+    workspace_id: membership.workspace_id,
+    track_id: String(formData.get("track_id") ?? ""),
+    name: String(formData.get("name") ?? "").trim(),
+    distance_miles: String(formData.get("distance_miles") ?? "").trim() ? Number(formData.get("distance_miles")) : null,
+  });
+  if (error) redirect("/dashboard/tracks?error=configuration");
+  revalidatePath("/dashboard/tracks");
+}
+
 export async function createEvent(formData: FormData) {
   const { supabase, user, membership } = await authContext();
   if (!membership) redirect("/dashboard");
   const vehicleId = String(formData.get("vehicle_id") ?? "");
   const date = String(formData.get("event_date") ?? "");
-  const trackName = String(formData.get("track_name") ?? "");
-  const configuration = String(formData.get("configuration_name") ?? "");
+  const trackId = String(formData.get("track_id") ?? "");
+  const configurationId = String(formData.get("configuration_id") ?? "");
   const eventName = String(formData.get("event_name") ?? "").trim();
-  const track = TRACKS.find((item) => item.name === trackName);
+  const tireSetId = String(formData.get("tire_set_id") ?? "");
+  const frontPadSetId = String(formData.get("front_pad_set_id") ?? "");
+  const rearPadSetId = String(formData.get("rear_pad_set_id") ?? "");
+  const { data: track } = await supabase.from("tracks").select("id,name,latitude,longitude").eq("workspace_id", membership.workspace_id).eq("id", trackId).single();
+  const { data: configuration } = await supabase.from("track_configurations").select("id,name,track_id").eq("workspace_id", membership.workspace_id).eq("id", configurationId).eq("track_id", trackId).single();
   const { data: vehicle } = await supabase
     .from("vehicles")
     .select("id, name")
     .eq("workspace_id", membership.workspace_id)
     .eq("id", vehicleId)
     .single();
-  if (!track || !vehicle || !date || !eventName || !track.configurations.includes(configuration as never)) {
+  const noId = "00000000-0000-0000-0000-000000000000";
+  const [{ data: tireSet }, { data: frontPadSet }, { data: rearPadSet }] = await Promise.all([
+    supabase.from("tire_sets").select("id,business_id,vehicle_id").eq("workspace_id", membership.workspace_id).eq("id", tireSetId || noId).maybeSingle(),
+    supabase.from("pad_sets").select("id,business_id,vehicle_id,axle").eq("workspace_id", membership.workspace_id).eq("id", frontPadSetId || noId).maybeSingle(),
+    supabase.from("pad_sets").select("id,business_id,vehicle_id,axle").eq("workspace_id", membership.workspace_id).eq("id", rearPadSetId || noId).maybeSingle(),
+  ]);
+  const invalidConsumables =
+    (tireSetId && (!tireSet || tireSet.vehicle_id !== vehicleId)) ||
+    (frontPadSetId && (!frontPadSet || frontPadSet.vehicle_id !== vehicleId || frontPadSet.axle !== "front")) ||
+    (rearPadSetId && (!rearPadSet || rearPadSet.vehicle_id !== vehicleId || rearPadSet.axle !== "rear"));
+  if (!track || !configuration || !vehicle || !date || !eventName || invalidConsumables) {
     redirect("/dashboard/events/new?error=required");
   }
 
-  const weather = await getEventWeather(date, track.latitude, track.longitude);
+  const weather = track.latitude != null && track.longitude != null ? await getEventWeather(date, track.latitude, track.longitude) : null;
   const businessIdPrefix = eventBusinessId(vehicle.name, date).slice(0, -2);
   const { count: sameDayCount } = await supabase
     .from("events")
@@ -118,15 +284,20 @@ export async function createEvent(formData: FormData) {
     event_date: date,
     event_name: eventName,
     track_name: track.name,
-    configuration_name: configuration,
+    configuration_name: configuration.name,
+    track_id: track.id,
+    configuration_id: configuration.id,
     organization_name: String(formData.get("organization_name") ?? "").trim() || null,
     event_type: String(formData.get("event_type") ?? "").trim() || null,
     team_name: String(formData.get("team_name") ?? "").trim() || "Ball Pit Motor",
     driver_name: String(formData.get("driver_name") ?? "").trim() || null,
     vehicle_id: vehicle.id,
-    tire_set_business_id: String(formData.get("tire_set_business_id") ?? "").trim() || null,
-    front_pad_set_business_id: String(formData.get("front_pad_set_business_id") ?? "").trim() || null,
-    rear_pad_set_business_id: String(formData.get("rear_pad_set_business_id") ?? "").trim() || null,
+    tire_set_id: tireSet?.id ?? null,
+    front_pad_set_id: frontPadSet?.id ?? null,
+    rear_pad_set_id: rearPadSet?.id ?? null,
+    tire_set_business_id: tireSet?.business_id ?? null,
+    front_pad_set_business_id: frontPadSet?.business_id ?? null,
+    rear_pad_set_business_id: rearPadSet?.business_id ?? null,
     notes: String(formData.get("notes") ?? "").trim() || null,
     created_by: user.id,
     ...(weather ?? {}),

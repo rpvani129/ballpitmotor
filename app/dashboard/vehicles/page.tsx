@@ -1,4 +1,5 @@
 import { createVehicle } from "@/app/actions";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function VehiclesPage() {
@@ -11,10 +12,10 @@ export default async function VehiclesPage() {
         <section className="section-block">
           <div className="vehicle-grid">
             {(vehicles ?? []).map((vehicle) => (
-              <article className="vehicle-card" key={vehicle.id}>
+              <Link className="vehicle-card" href={`/dashboard/vehicles/${vehicle.id}`} key={vehicle.id}>
                 <span className="ball-number">{vehicle.business_id}</span>
-                <div><h2>{vehicle.name}</h2><p>{vehicle.status}</p></div>
-              </article>
+                <div><h2>{vehicle.name}</h2><p>{vehicle.status} · View garage file →</p></div>
+              </Link>
             ))}
           </div>
         </section>

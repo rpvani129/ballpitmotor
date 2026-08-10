@@ -18,6 +18,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Link href="/dashboard">Overview</Link>
           <Link href="/dashboard/events/new">New event</Link>
           <Link href="/dashboard/vehicles">Vehicles</Link>
+          <Link href="/dashboard/consumables">Tires + pads</Link>
+          <Link href="/dashboard/tracks">Tracks</Link>
         </nav>
         <form action={signOut}><button className="text-button">Log out</button></form>
       </header>
