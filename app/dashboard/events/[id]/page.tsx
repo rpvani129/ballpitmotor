@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addSession, completeChecklist, startChecklist } from "@/app/actions";
+import { addSession, startChecklist } from "@/app/actions";
 import { formatLap } from "@/lib/grid";
 import { createClient } from "@/lib/supabase/server";
+import ChecklistEditor from "./ChecklistEditor";
 
 type Event = {
   id: string;
@@ -48,6 +49,8 @@ type ChecklistRun = {
   template_snapshot: { id: string; label: string; position: number }[];
 };
 
+type ChecklistResult = { response: { item_id?: string; checked?: boolean } | null; template_item_id: string | null };
+
 export default async function EventPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) {
   const { id } = await params;
   const query = await searchParams;
@@ -61,7 +64,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const event = rawEvent as unknown as Event;
   const sessions = (rawSessions ?? []) as Session[];
   const run = rawRun as ChecklistRun | null;
+  const { data: rawResults } = run ? await supabase.from("checklist_item_results").select("template_item_id,response").eq("checklist_run_id", run.id) : { data: [] };
+  const results = (rawResults ?? []) as ChecklistResult[];
+  const checkedByItem = new Map(results.map((result) => [result.response?.item_id ?? result.template_item_id, result.response?.checked === true]));
+  const checklistItems = run ? [...run.template_snapshot].sort((a, b) => a.position - b.position).map((item) => ({ id: item.id, label: item.label, checked: checkedByItem.get(item.id) ?? false })) : [];
   const nextSession = sessions.length ? Math.max(...sessions.map((s) => s.session_number)) + 1 : 1;
+  const timedLaps = sessions.map((session) => session.best_lap_ms).filter((lap): lap is number => lap != null);
+  const eventFastestLap = timedLaps.length ? Math.min(...timedLaps) : null;
 
   return (
     <main className="dashboard-main">
@@ -72,7 +81,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           <h1>{event.event_name}</h1>
           <p className="event-location">{event.track_name} · {event.configuration_name}</p>
         </div>
-        <div className="date-block"><strong>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}</strong><span>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span></div>
+        <div className="event-hero-actions"><Link className="button dark" href={`/dashboard/events/${event.id}/edit`}>Edit event</Link><div className="date-block"><strong>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}</strong><span>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span></div></div>
       </section>
 
       {query.error && <p className="alert">That record could not be saved. Check the fields and try again.</p>}
@@ -82,6 +91,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         <div><span>Driver</span><strong>{event.driver_name ?? "—"}</strong></div>
         <div><span>Team</span><strong>{event.team_name ?? "—"}</strong></div>
         <div><span>Organization</span><strong>{event.organization_name ?? "Independent"}</strong></div>
+        <div className="fastest-fact"><span>Fastest lap</span><strong>{formatLap(eventFastestLap)}</strong></div>
       </section>
 
       <div className="event-content-grid">
@@ -109,18 +119,14 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <h2>{event.conditions ?? "Weather pending"}</h2>
             <dl><div><dt>Track</dt><dd>{event.track_condition ?? "—"}</dd></div><div><dt>Wind</dt><dd>{event.wind_speed_mph != null ? `${event.wind_speed_mph.toFixed(1)} mph` : "—"}</dd></div><div><dt>Humidity</dt><dd>{event.humidity_pct != null ? `${event.humidity_pct.toFixed(0)}%` : "—"}</dd></div><div><dt>Rain</dt><dd>{event.precipitation_in != null ? `${event.precipitation_in.toFixed(2)} in` : "—"}</dd></div></dl>
           </section>
-          <section className="setup-card"><p className="eyebrow">ON THE CAR</p><h2>Event setup</h2><dl><div><dt>Tires</dt><dd>{event.tire_sets?.business_id ?? event.tire_set_business_id ?? "—"}</dd></div><div><dt>Front pads</dt><dd>{event.front_pad_sets?.business_id ?? event.front_pad_set_business_id ?? "—"}</dd></div><div><dt>Rear pads</dt><dd>{event.rear_pad_sets?.business_id ?? event.rear_pad_set_business_id ?? "—"}</dd></div></dl></section>
+          <section className="setup-card"><p className="eyebrow">ON THE CAR</p><h2>Event setup</h2><dl><div><dt>Tires</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=tires">{event.tire_sets?.business_id ?? event.tire_set_business_id ?? "View tires"} ↗</Link></dd></div><div><dt>Front pads</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=pads">{event.front_pad_sets?.business_id ?? event.front_pad_set_business_id ?? "View pads"} ↗</Link></dd></div><div><dt>Rear pads</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=pads">{event.rear_pad_sets?.business_id ?? event.rear_pad_set_business_id ?? "View pads"} ↗</Link></dd></div></dl><Link className="setup-edit-link" href={`/dashboard/events/${event.id}/edit`}>Reassign event setup →</Link></section>
         </aside>
       </div>
 
       <section className="section-block checklist-block">
         <div className="section-heading"><div><p className="eyebrow">PRE-EVENT</p><h2>Safety checklist</h2></div>{run && <span className={`status-pill ${run.status}`}>{run.status}</span>}</div>
         {!run ? <form action={startChecklist}><input type="hidden" name="event_id" value={event.id} /><input type="hidden" name="vehicle_id" value={event.vehicle_id ?? ""} /><button className="button dark">Start pre-event checklist</button></form> :
-          <form className="checklist" action={completeChecklist}>
-            <input type="hidden" name="event_id" value={event.id} /><input type="hidden" name="run_id" value={run.id} />
-            {[...run.template_snapshot].sort((a, b) => a.position - b.position).map((item) => <label key={item.id}><input type="checkbox" name={`item_${item.id}`} defaultChecked={run.status === "complete"} disabled={run.status === "complete"} /><span>{item.label}</span></label>)}
-            {run.status !== "complete" && <button className="button primary">Complete checklist</button>}
-          </form>}
+          <ChecklistEditor eventId={event.id} runId={run.id} initialItems={checklistItems} />}
       </section>
     </main>
   );

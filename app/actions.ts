@@ -155,6 +155,79 @@ export async function addMaintenanceRecord(formData: FormData) {
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
 }
 
+export async function updateMaintenanceRecord(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const id = String(formData.get("id") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  if (!membership || !id || !vehicleId) redirect("/dashboard/vehicles");
+  const text = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const numeric = (name: string) => text(name) ? Number(text(name)) : null;
+  const { error } = await supabase.from("maintenance_records").update({
+    service_date: String(formData.get("service_date") ?? ""),
+    category: String(formData.get("category") ?? "Maintenance").trim(),
+    title: String(formData.get("title") ?? "").trim(),
+    description: text("description"),
+    odometer_miles: numeric("odometer_miles"),
+    vendor: text("vendor"),
+    cost: numeric("cost"),
+    next_due_date: text("next_due_date"),
+    next_due_miles: numeric("next_due_miles"),
+    source_url: text("source_url"),
+  }).eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId).eq("id", id);
+  if (error) redirect(`/dashboard/vehicles/${vehicleId}?error=maintenance`);
+  revalidatePath(`/dashboard/vehicles/${vehicleId}`);
+}
+
+export async function addMaintenanceRecordItem(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const maintenanceRecordId = String(formData.get("maintenance_record_id") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  if (!membership || !maintenanceRecordId || !vehicleId) redirect("/dashboard/vehicles");
+  const text = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const { data: record } = await supabase.from("maintenance_records").select("id")
+    .eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId).eq("id", maintenanceRecordId).single();
+  if (!record) redirect(`/dashboard/vehicles/${vehicleId}?error=maintenance-item`);
+  const { count } = await supabase.from("maintenance_record_items").select("id", { count: "exact", head: true })
+    .eq("workspace_id", membership.workspace_id).eq("maintenance_record_id", maintenanceRecordId);
+  const { error } = await supabase.from("maintenance_record_items").insert({
+    workspace_id: membership.workspace_id,
+    maintenance_record_id: maintenanceRecordId,
+    position: count ?? 0,
+    category: String(formData.get("category") ?? "Maintenance").trim(),
+    title: String(formData.get("title") ?? "").trim(),
+    details: text("details"),
+    quantity: text("quantity"),
+    line_amount: text("line_amount") ? Number(text("line_amount")) : null,
+    source_item_number: text("source_item_number"),
+    status: String(formData.get("status") ?? "Complete").trim(),
+  });
+  if (error) redirect(`/dashboard/vehicles/${vehicleId}?error=maintenance-item`);
+  revalidatePath(`/dashboard/vehicles/${vehicleId}`);
+}
+
+export async function updateMaintenanceRecordItem(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const id = String(formData.get("id") ?? "");
+  const maintenanceRecordId = String(formData.get("maintenance_record_id") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  if (!membership || !id || !maintenanceRecordId || !vehicleId) redirect("/dashboard/vehicles");
+  const text = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const { data: record } = await supabase.from("maintenance_records").select("id")
+    .eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId).eq("id", maintenanceRecordId).single();
+  if (!record) redirect(`/dashboard/vehicles/${vehicleId}?error=maintenance-item`);
+  const { error } = await supabase.from("maintenance_record_items").update({
+    category: String(formData.get("category") ?? "Maintenance").trim(),
+    title: String(formData.get("title") ?? "").trim(),
+    details: text("details"),
+    quantity: text("quantity"),
+    line_amount: text("line_amount") ? Number(text("line_amount")) : null,
+    source_item_number: text("source_item_number"),
+    status: String(formData.get("status") ?? "Complete").trim(),
+  }).eq("workspace_id", membership.workspace_id).eq("maintenance_record_id", maintenanceRecordId).eq("id", id);
+  if (error) redirect(`/dashboard/vehicles/${vehicleId}?error=maintenance-item`);
+  revalidatePath(`/dashboard/vehicles/${vehicleId}`);
+}
+
 export async function createTireSet(formData: FormData) {
   const { supabase, membership } = await authContext();
   if (!membership) redirect("/dashboard");
@@ -373,6 +446,64 @@ export async function createEvent(formData: FormData) {
   redirect(`/dashboard/events/${event.id}`);
 }
 
+export async function updateEvent(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const eventId = String(formData.get("event_id") ?? "");
+  if (!membership || !eventId) redirect("/dashboard");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  const date = String(formData.get("event_date") ?? "");
+  const trackId = String(formData.get("track_id") ?? "");
+  const configurationId = String(formData.get("configuration_id") ?? "");
+  const eventName = String(formData.get("event_name") ?? "").trim();
+  const tireSetId = String(formData.get("tire_set_id") ?? "");
+  const frontPadSetId = String(formData.get("front_pad_set_id") ?? "");
+  const rearPadSetId = String(formData.get("rear_pad_set_id") ?? "");
+  const noId = "00000000-0000-0000-0000-000000000000";
+  const [{ data: event }, { data: track }, { data: configuration }, { data: vehicle }, { data: tireSet }, { data: frontPadSet }, { data: rearPadSet }] = await Promise.all([
+    supabase.from("events").select("id").eq("workspace_id", membership.workspace_id).eq("id", eventId).single(),
+    supabase.from("tracks").select("id,name,latitude,longitude").eq("workspace_id", membership.workspace_id).eq("id", trackId).single(),
+    supabase.from("track_configurations").select("id,name,track_id").eq("workspace_id", membership.workspace_id).eq("id", configurationId).eq("track_id", trackId).single(),
+    supabase.from("vehicles").select("id,name").eq("workspace_id", membership.workspace_id).eq("id", vehicleId).single(),
+    supabase.from("tire_sets").select("id,business_id,vehicle_id").eq("workspace_id", membership.workspace_id).eq("id", tireSetId || noId).maybeSingle(),
+    supabase.from("pad_sets").select("id,business_id,vehicle_id,axle").eq("workspace_id", membership.workspace_id).eq("id", frontPadSetId || noId).maybeSingle(),
+    supabase.from("pad_sets").select("id,business_id,vehicle_id,axle").eq("workspace_id", membership.workspace_id).eq("id", rearPadSetId || noId).maybeSingle(),
+  ]);
+  const invalidConsumables =
+    (tireSetId && (!tireSet || tireSet.vehicle_id !== vehicleId)) ||
+    (frontPadSetId && (!frontPadSet || frontPadSet.vehicle_id !== vehicleId || frontPadSet.axle !== "front")) ||
+    (rearPadSetId && (!rearPadSet || rearPadSet.vehicle_id !== vehicleId || rearPadSet.axle !== "rear"));
+  if (!event || !track || !configuration || !vehicle || !date || !eventName || invalidConsumables) {
+    redirect(`/dashboard/events/${eventId}/edit?error=required`);
+  }
+  const weather = track.latitude != null && track.longitude != null ? await getEventWeather(date, track.latitude, track.longitude) : null;
+  const { error } = await supabase.from("events").update({
+    event_date: date,
+    event_name: eventName,
+    track_id: track.id,
+    track_name: track.name,
+    configuration_id: configuration.id,
+    configuration_name: configuration.name,
+    organization_name: String(formData.get("organization_name") ?? "").trim() || null,
+    event_type: String(formData.get("event_type") ?? "").trim() || null,
+    team_name: String(formData.get("team_name") ?? "").trim() || null,
+    driver_name: String(formData.get("driver_name") ?? "").trim() || null,
+    vehicle_id: vehicle.id,
+    tire_set_id: tireSet?.id ?? null,
+    front_pad_set_id: frontPadSet?.id ?? null,
+    rear_pad_set_id: rearPadSet?.id ?? null,
+    tire_set_business_id: tireSet?.business_id ?? null,
+    front_pad_set_business_id: frontPadSet?.business_id ?? null,
+    rear_pad_set_business_id: rearPadSet?.business_id ?? null,
+    status: String(formData.get("status") ?? "planned"),
+    notes: String(formData.get("notes") ?? "").trim() || null,
+    ...(weather ?? {}),
+  }).eq("workspace_id", membership.workspace_id).eq("id", eventId);
+  if (error) redirect(`/dashboard/events/${eventId}/edit?error=save`);
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/events/${eventId}`);
+  redirect(`/dashboard/events/${eventId}`);
+}
+
 export async function addSession(formData: FormData) {
   const { supabase, user, membership } = await authContext();
   if (!membership) redirect("/dashboard");
@@ -421,29 +552,83 @@ export async function startChecklist(formData: FormData) {
   revalidatePath(`/dashboard/events/${eventId}`);
 }
 
-export async function completeChecklist(formData: FormData) {
+type ChecklistItemInput = { id: string; label: string; checked: boolean };
+
+export async function saveChecklist(formData: FormData) {
   const { supabase, user, membership } = await authContext();
   if (!membership) redirect("/dashboard");
   const eventId = String(formData.get("event_id") ?? "");
   const runId = String(formData.get("run_id") ?? "");
+  const intent = String(formData.get("intent") ?? "save");
+  const makeTemplate = formData.get("make_template") === "true";
+  let submitted: unknown;
+  try { submitted = JSON.parse(String(formData.get("items_json") ?? "[]")); } catch { submitted = []; }
+  const items = (Array.isArray(submitted) ? submitted : []).slice(0, 75).map((item, position) => {
+    const value = item as Partial<ChecklistItemInput>;
+    return {
+      id: String(value.id ?? crypto.randomUUID()),
+      label: String(value.label ?? "").trim().slice(0, 240),
+      checked: value.checked === true,
+      position,
+      is_required: true,
+    };
+  }).filter((item) => item.label);
+  if (!eventId || !runId || !items.length) redirect(`/dashboard/events/${eventId}?error=checklist`);
   const { data: run } = await supabase
     .from("checklist_runs")
-    .select("template_snapshot")
+    .select("id,template_id,template_version")
     .eq("workspace_id", membership.workspace_id)
+    .eq("event_id", eventId)
     .eq("id", runId)
     .single();
-  const items = Array.isArray(run?.template_snapshot) ? run.template_snapshot : [];
+  if (!run) redirect(`/dashboard/events/${eventId}?error=checklist`);
+
+  let snapshot = items.map(({ id, label, position, is_required }) => ({ id, label, position, is_required }));
+  let templateId = run.template_id;
+  let templateVersion = run.template_version;
+  if (makeTemplate) {
+    const { data: latest } = await supabase.from("checklist_templates").select("version").eq("workspace_id", membership.workspace_id).order("version", { ascending: false }).limit(1).maybeSingle();
+    templateVersion = (latest?.version ?? 0) + 1;
+    const { data: template, error: templateError } = await supabase.from("checklist_templates").insert({
+      workspace_id: membership.workspace_id,
+      name: "Standard Pre-Event Checklist",
+      version: templateVersion,
+      is_active: false,
+    }).select("id").single();
+    if (templateError || !template) redirect(`/dashboard/events/${eventId}?error=template`);
+    templateId = template.id;
+    const { data: templateItems, error: itemError } = await supabase.from("checklist_template_items").insert(items.map((item) => ({
+      workspace_id: membership.workspace_id,
+      template_id: template.id,
+      position: item.position,
+      label: item.label,
+      is_required: true,
+    }))).select("id,label,position,is_required");
+    if (itemError || !templateItems) redirect(`/dashboard/events/${eventId}?error=template`);
+    await supabase.from("checklist_templates").update({ is_active: false }).eq("workspace_id", membership.workspace_id).eq("is_active", true);
+    const { error: activateError } = await supabase.from("checklist_templates").update({ is_active: true }).eq("workspace_id", membership.workspace_id).eq("id", template.id);
+    if (activateError) redirect(`/dashboard/events/${eventId}?error=template`);
+    snapshot = templateItems;
+  }
+
   await supabase.from("checklist_item_results").delete().eq("checklist_run_id", runId);
-  await supabase.from("checklist_item_results").insert(
-    items.map((item: { id: string }) => ({
+  const { error: resultError } = await supabase.from("checklist_item_results").insert(
+    items.map((item, position) => ({
       workspace_id: membership.workspace_id,
       checklist_run_id: runId,
-      template_item_id: item.id,
-      response: { checked: formData.get(`item_${item.id}`) === "on" },
+      template_item_id: makeTemplate ? snapshot[position]?.id ?? null : null,
+      response: { item_id: snapshot[position]?.id ?? item.id, checked: item.checked },
       completed_by: user.id,
       completed_at: new Date().toISOString(),
     })),
   );
-  await supabase.from("checklist_runs").update({ status: "complete" }).eq("id", runId);
+  if (resultError) redirect(`/dashboard/events/${eventId}?error=checklist`);
+  const { error: runError } = await supabase.from("checklist_runs").update({
+    template_id: templateId,
+    template_version: templateVersion,
+    template_snapshot: snapshot,
+    status: intent === "complete" ? "complete" : "open",
+  }).eq("workspace_id", membership.workspace_id).eq("id", runId);
+  if (runError) redirect(`/dashboard/events/${eventId}?error=checklist`);
   revalidatePath(`/dashboard/events/${eventId}`);
 }

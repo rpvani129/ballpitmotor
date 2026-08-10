@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createBallPitWorkspace } from "@/app/actions";
 import { createClient } from "@/lib/supabase/server";
+import EventIndex from "./EventIndex";
 
 type EventRow = {
   id: string;
@@ -12,7 +13,7 @@ type EventRow = {
   organization_name: string | null;
   status: string;
   vehicles: { name: string } | null;
-  sessions: { count: number }[];
+  sessions: { best_lap_ms: number | null }[];
 };
 
 export default async function DashboardPage() {
@@ -41,7 +42,7 @@ export default async function DashboardPage() {
 
   const [{ data: events }, { count: vehicleCount }, { count: sessionCount }] = await Promise.all([
     supabase.from("events")
-      .select("id,business_id,event_date,event_name,track_name,configuration_name,organization_name,status,vehicles(name),sessions(count)")
+      .select("id,business_id,event_date,event_name,track_name,configuration_name,organization_name,status,vehicles(name),sessions(best_lap_ms)")
       .eq("workspace_id", membership.workspace_id)
       .order("event_date", { ascending: false })
       .order("business_id", { ascending: false }),
@@ -74,18 +75,7 @@ export default async function DashboardPage() {
           <div><p className="eyebrow">EVENT INDEX</p><h2>All events</h2></div>
           <Link href="/dashboard/events/new">Add event →</Link>
         </div>
-        {rows.length ? (
-          <div className="event-list">
-            {rows.map((event) => (
-              <Link className="event-row" href={`/dashboard/events/${event.id}`} key={event.id}>
-                <time>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</time>
-                <div><strong>{event.event_name}</strong><span>{event.track_name} · {event.configuration_name}</span></div>
-                <div className="event-meta"><span>{event.organization_name || "Independent"}</span><b>{event.sessions?.[0]?.count ?? 0} sessions</b></div>
-                <span className={`status-pill ${event.status}`}>{event.status.replace("_", " ")}</span>
-              </Link>
-            ))}
-          </div>
-        ) : (
+        {rows.length ? <EventIndex events={rows} /> : (
           <div className="empty-state"><strong>No events yet.</strong><p>Create the first Event ID, then add sessions to it.</p></div>
         )}
       </section>

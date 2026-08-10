@@ -15,8 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <strong>THE GRID</strong>
         </Link>
         <nav aria-label="Primary navigation">
-          <Link href="/dashboard">Overview</Link>
-          <Link href="/dashboard/events/new">New event</Link>
+          <Link href="/dashboard">Events</Link>
           <Link href="/dashboard/vehicles">Vehicles</Link>
           <Link href="/dashboard/consumables">Tires + pads</Link>
           <Link href="/dashboard/tracks">Tracks</Link>

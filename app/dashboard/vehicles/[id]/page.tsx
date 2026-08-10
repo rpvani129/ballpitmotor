@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { addMaintenanceRecord, updateVehicle } from "@/app/actions";
 import { createClient } from "@/lib/supabase/server";
+import ServiceRecords from "./ServiceRecords";
 
 export default async function VehiclePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) {
   const { id } = await params;
@@ -9,7 +10,7 @@ export default async function VehiclePage({ params, searchParams }: { params: Pr
   const supabase = await createClient();
   const [{ data: vehicle }, { data: maintenance }, { count: eventCount }] = await Promise.all([
     supabase.from("vehicles").select("*").eq("id", id).single(),
-    supabase.from("maintenance_records").select("*").eq("vehicle_id", id).order("service_date", { ascending: false }),
+    supabase.from("maintenance_records").select("*, maintenance_record_items(*)").eq("vehicle_id", id).order("service_date", { ascending: false }).order("position", { referencedTable: "maintenance_record_items", ascending: true }),
     supabase.from("events").select("id", { count: "exact", head: true }).eq("vehicle_id", id),
   ]);
   if (!vehicle) notFound();
@@ -40,7 +41,7 @@ export default async function VehiclePage({ params, searchParams }: { params: Pr
       </aside>
     </div>
     <section className="section-block"><div className="section-heading"><div><p className="eyebrow">MAINTENANCE HISTORY</p><h2>Service records</h2></div><span>{maintenance?.length ?? 0} logged</span></div>
-      {maintenance?.length ? <div className="record-list">{maintenance.map((record) => <article className="record-row" key={record.id}><time>{new Date(`${record.service_date}T12:00:00`).toLocaleDateString()}</time><div><strong>{record.title}</strong><span>{record.category}{record.vendor ? ` · ${record.vendor}` : ""}</span></div><span>{record.odometer_miles ? `${record.odometer_miles.toLocaleString()} mi` : "—"}</span><b>{record.cost != null ? `$${Number(record.cost).toFixed(2)}` : "—"}</b></article>)}</div> : <div className="empty-state"><strong>No maintenance logged.</strong><p>Add the first service item above.</p></div>}
+      {maintenance?.length ? <ServiceRecords vehicleId={id} records={maintenance} /> : <div className="empty-state"><strong>No maintenance logged.</strong><p>Add the first service item above.</p></div>}
     </section>
   </main>;
 }
