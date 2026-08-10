@@ -90,14 +90,14 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           {sessions.length ? <div className="session-table">
             <div className="session-head"><span>Session</span><span>Start</span><span>Best lap</span><span></span></div>
             {sessions.map((session) => <div className={session.is_fastest ? "session-row fastest" : "session-row"} key={session.id}>
-              <strong>{String(session.session_number).padStart(2, "0")}</strong><span>{session.started_at?.slice(0, 5) ?? "—"}</span><b>{formatLap(session.best_lap_ms)}</b><span>{session.is_fastest ? "FASTEST" : ""}</span>
+              <strong>{String(session.session_number).padStart(2, "0")}</strong><span>{session.started_at?.slice(0, 5) ?? "—"}</span><b>{session.best_lap_ms ? formatLap(session.best_lap_ms) : "Usage only"}</b><span>{session.is_fastest ? "FASTEST" : ""}</span>
             </div>)}
           </div> : <div className="empty-state compact"><strong>No sessions yet.</strong><p>Add the first Garmin result below.</p></div>}
           <form className="inline-form" action={addSession}>
             <input type="hidden" name="event_id" value={event.id} />
             <label>Session<input name="session_number" type="number" min="1" defaultValue={nextSession} required /></label>
             <label>Start<input name="started_at" type="time" /></label>
-            <label>Best lap<input name="best_lap" placeholder="1:23.49" pattern="[0-9]+:[0-5]?[0-9](\.[0-9]{1,3})?" required /></label>
+            <label>Best lap <small>(optional)</small><input name="best_lap" placeholder="1:23.49" pattern="[0-9]+:[0-5]?[0-9](\.[0-9]{1,3})?" /></label>
             <label>Source URL<input name="source_url" type="url" placeholder="Garmin screenshot" /></label>
             <button className="button primary">Add session</button>
           </form>

@@ -44,7 +44,7 @@ export default async function DashboardPage() {
       .select("id,business_id,event_date,event_name,track_name,configuration_name,organization_name,status,vehicles(name),sessions(count)")
       .eq("workspace_id", membership.workspace_id)
       .order("event_date", { ascending: false })
-      .limit(12),
+      .order("business_id", { ascending: false }),
     supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id),
     supabase.from("sessions").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id),
   ]);
@@ -63,7 +63,7 @@ export default async function DashboardPage() {
       </section>
 
       <section className="stat-grid" aria-label="Workspace summary">
-        <div className="stat-card"><strong>{rows.length}</strong><span>Recent events</span></div>
+        <div className="stat-card"><strong>{rows.length}</strong><span>All events</span></div>
         <div className="stat-card"><strong>{sessionCount ?? 0}</strong><span>Sessions logged</span></div>
         <div className="stat-card"><strong>{vehicleCount ?? 0}</strong><span>Vehicles</span></div>
         <div className="stat-card accent"><strong>{upcoming}</strong><span>Upcoming</span></div>
@@ -71,7 +71,7 @@ export default async function DashboardPage() {
 
       <section className="section-block">
         <div className="section-heading">
-          <div><p className="eyebrow">EVENT INDEX</p><h2>Latest activity</h2></div>
+          <div><p className="eyebrow">EVENT INDEX</p><h2>All events</h2></div>
           <Link href="/dashboard/events/new">Add event →</Link>
         </div>
         {rows.length ? (

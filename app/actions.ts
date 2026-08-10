@@ -193,6 +193,48 @@ export async function createPadSet(formData: FormData) {
   revalidatePath("/dashboard/consumables");
 }
 
+export async function updateTireSet(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const id = String(formData.get("id") ?? "");
+  if (!membership || !id) redirect("/dashboard/consumables?tab=tires");
+  const text = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const { error } = await supabase.from("tire_sets").update({
+    vehicle_id: String(formData.get("vehicle_id") ?? ""),
+    business_id: String(formData.get("business_id") ?? "").trim().toUpperCase(),
+    manufacturer: String(formData.get("manufacturer") ?? "").trim(),
+    model: String(formData.get("model") ?? "").trim(),
+    size: text("size"),
+    compound: text("compound"),
+    purchased_on: text("purchased_on"),
+    starting_sessions: text("starting_sessions") ? Number(text("starting_sessions")) : null,
+    status: String(formData.get("status") ?? "active"),
+    notes: text("notes"),
+  }).eq("workspace_id", membership.workspace_id).eq("id", id);
+  if (error) redirect("/dashboard/consumables?tab=tires&error=tire");
+  revalidatePath("/dashboard/consumables");
+}
+
+export async function updatePadSet(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const id = String(formData.get("id") ?? "");
+  if (!membership || !id) redirect("/dashboard/consumables?tab=pads");
+  const text = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  const { error } = await supabase.from("pad_sets").update({
+    vehicle_id: String(formData.get("vehicle_id") ?? ""),
+    business_id: String(formData.get("business_id") ?? "").trim().toUpperCase(),
+    axle: String(formData.get("axle") ?? "front"),
+    manufacturer: String(formData.get("manufacturer") ?? "").trim(),
+    model: String(formData.get("model") ?? "").trim(),
+    compound: text("compound"),
+    purchased_on: text("purchased_on"),
+    starting_sessions: text("starting_sessions") ? Number(text("starting_sessions")) : null,
+    status: String(formData.get("status") ?? "active"),
+    notes: text("notes"),
+  }).eq("workspace_id", membership.workspace_id).eq("id", id);
+  if (error) redirect("/dashboard/consumables?tab=pads&error=pad");
+  revalidatePath("/dashboard/consumables");
+}
+
 export async function createTrack(formData: FormData) {
   const { supabase, membership } = await authContext();
   if (!membership) redirect("/dashboard");
@@ -201,8 +243,8 @@ export async function createTrack(formData: FormData) {
   const { data: track, error } = await supabase.from("tracks").insert({
     workspace_id: membership.workspace_id,
     name: String(formData.get("name") ?? "").trim(), short_name: text("short_name"),
-    address: text("address"), city: text("city"), region: text("region"),
-    latitude: numeric("latitude"), longitude: numeric("longitude"), website_url: text("website_url"),
+    address: text("address"), city: text("city"), region: text("region"), postal_code: text("postal_code"), country: text("country") ?? "USA",
+    latitude: numeric("latitude"), longitude: numeric("longitude"), timezone: text("timezone") ?? "America/Chicago", website_url: text("website_url"), notes: text("notes"),
   }).select("id").single();
   if (error || !track) redirect("/dashboard/tracks?error=track");
   const configuration = text("configuration_name");
@@ -218,10 +260,12 @@ export async function updateTrack(formData: FormData) {
   const numeric = (name: string) => text(name) ? Number(text(name)) : null;
   await supabase.from("tracks").update({
     name: String(formData.get("name") ?? "").trim(), short_name: text("short_name"),
-    address: text("address"), city: text("city"), region: text("region"),
-    latitude: numeric("latitude"), longitude: numeric("longitude"), website_url: text("website_url"),
+    address: text("address"), city: text("city"), region: text("region"), postal_code: text("postal_code"), country: text("country") ?? "USA",
+    latitude: numeric("latitude"), longitude: numeric("longitude"), timezone: text("timezone") ?? "America/Chicago", website_url: text("website_url"), notes: text("notes"), is_active: String(formData.get("is_active") ?? "true") === "true",
   }).eq("workspace_id", membership.workspace_id).eq("id", trackId);
+  await supabase.from("events").update({ track_name: String(formData.get("name") ?? "").trim() }).eq("workspace_id", membership.workspace_id).eq("track_id", trackId);
   revalidatePath("/dashboard/tracks");
+  revalidatePath(`/dashboard/tracks/${trackId}`);
 }
 
 export async function addTrackConfiguration(formData: FormData) {
@@ -231,10 +275,31 @@ export async function addTrackConfiguration(formData: FormData) {
     workspace_id: membership.workspace_id,
     track_id: String(formData.get("track_id") ?? ""),
     name: String(formData.get("name") ?? "").trim(),
+    direction: String(formData.get("direction") ?? "").trim() || null,
     distance_miles: String(formData.get("distance_miles") ?? "").trim() ? Number(formData.get("distance_miles")) : null,
   });
-  if (error) redirect("/dashboard/tracks?error=configuration");
+  if (error) redirect(`/dashboard/tracks/${String(formData.get("track_id") ?? "")}?error=configuration`);
   revalidatePath("/dashboard/tracks");
+  revalidatePath(`/dashboard/tracks/${String(formData.get("track_id") ?? "")}`);
+}
+
+export async function updateTrackConfiguration(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const trackId = String(formData.get("track_id") ?? "");
+  const configurationId = String(formData.get("configuration_id") ?? "");
+  if (!membership || !trackId || !configurationId) redirect("/dashboard/tracks");
+  const name = String(formData.get("name") ?? "").trim();
+  const { error } = await supabase.from("track_configurations").update({
+    name,
+    direction: String(formData.get("direction") ?? "").trim() || null,
+    distance_miles: String(formData.get("distance_miles") ?? "").trim() ? Number(formData.get("distance_miles")) : null,
+    is_active: String(formData.get("is_active") ?? "true") === "true",
+  }).eq("workspace_id", membership.workspace_id).eq("track_id", trackId).eq("id", configurationId);
+  if (error) redirect(`/dashboard/tracks/${trackId}?error=configuration`);
+  await supabase.from("events").update({ configuration_name: name }).eq("workspace_id", membership.workspace_id).eq("configuration_id", configurationId);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/tracks");
+  revalidatePath(`/dashboard/tracks/${trackId}`);
 }
 
 export async function createEvent(formData: FormData) {
@@ -313,8 +378,9 @@ export async function addSession(formData: FormData) {
   if (!membership) redirect("/dashboard");
   const eventId = String(formData.get("event_id") ?? "");
   const sessionNumber = Number(formData.get("session_number"));
-  const bestLap = parseLap(String(formData.get("best_lap") ?? ""));
-  if (!eventId || !sessionNumber || !bestLap) redirect(`/dashboard/events/${eventId}?error=session`);
+  const bestLapInput = String(formData.get("best_lap") ?? "").trim();
+  const bestLap = bestLapInput ? parseLap(bestLapInput) : null;
+  if (!eventId || !sessionNumber || (bestLapInput && !bestLap)) redirect(`/dashboard/events/${eventId}?error=session`);
   const { error } = await supabase.from("sessions").insert({
     workspace_id: membership.workspace_id,
     event_id: eventId,
