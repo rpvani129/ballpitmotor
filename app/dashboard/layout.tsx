@@ -20,7 +20,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Link href="/dashboard/consumables">Tires + pads</Link>
           <Link href="/dashboard/tracks">Tracks</Link>
         </nav>
-        <form action={signOut}><button className="text-button">Log out</button></form>
+        <div className="topbar-actions">
+          <a href="https://ballpitmotor.com">Ball Pit Motorsports ↗</a>
+          <form action={signOut}><button className="text-button">Log out</button></form>
+        </div>
       </header>
       {children}
       <footer className="app-footer">
