@@ -94,12 +94,14 @@ export async function createVehicle(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const businessId = String(formData.get("business_id") ?? "").trim().toUpperCase();
   if (!name || !businessId) redirect("/dashboard/vehicles?error=required");
-  await supabase.from("vehicles").insert({
+  const { data: vehicle, error } = await supabase.from("vehicles").insert({
     workspace_id: membership.workspace_id,
     name,
     business_id: businessId,
-  });
+  }).select("id").single();
+  if (error || !vehicle) redirect("/dashboard/vehicles/new?error=save");
   revalidatePath("/dashboard/vehicles");
+  redirect(`/dashboard/vehicles/${vehicle.id}`);
 }
 
 export async function updateVehicle(formData: FormData) {
@@ -129,6 +131,7 @@ export async function updateVehicle(formData: FormData) {
   if (error) redirect(`/dashboard/vehicles/${vehicleId}?error=vehicle`);
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
   revalidatePath("/dashboard/vehicles");
+  redirect(`/dashboard/vehicles/${vehicleId}`);
 }
 
 export async function addMaintenanceRecord(formData: FormData) {
@@ -153,6 +156,7 @@ export async function addMaintenanceRecord(formData: FormData) {
   });
   if (error) redirect(`/dashboard/vehicles/${vehicleId}?error=maintenance`);
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
+  redirect(`/dashboard/vehicles/${vehicleId}`);
 }
 
 export async function updateMaintenanceRecord(formData: FormData) {
@@ -176,6 +180,7 @@ export async function updateMaintenanceRecord(formData: FormData) {
   }).eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId).eq("id", id);
   if (error) redirect(`/dashboard/vehicles/${vehicleId}?error=maintenance`);
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
+  redirect(`/dashboard/vehicles/${vehicleId}`);
 }
 
 export async function addMaintenanceRecordItem(formData: FormData) {
@@ -511,7 +516,7 @@ export async function addSession(formData: FormData) {
   const sessionNumber = Number(formData.get("session_number"));
   const bestLapInput = String(formData.get("best_lap") ?? "").trim();
   const bestLap = bestLapInput ? parseLap(bestLapInput) : null;
-  if (!eventId || !sessionNumber || (bestLapInput && !bestLap)) redirect(`/dashboard/events/${eventId}?error=session`);
+  if (!eventId || !sessionNumber || (bestLapInput && !bestLap)) redirect(`/dashboard/events/${eventId}/sessions/new?error=session`);
   const { error } = await supabase.from("sessions").insert({
     workspace_id: membership.workspace_id,
     event_id: eventId,
@@ -522,8 +527,30 @@ export async function addSession(formData: FormData) {
     notes: String(formData.get("notes") ?? "").trim() || null,
     created_by: user.id,
   });
-  if (error) redirect(`/dashboard/events/${eventId}?error=session`);
+  if (error) redirect(`/dashboard/events/${eventId}/sessions/new?error=session`);
   revalidatePath(`/dashboard/events/${eventId}`);
+  redirect(`/dashboard/events/${eventId}?tab=sessions`);
+}
+
+export async function updateSession(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const eventId = String(formData.get("event_id") ?? "");
+  const sessionId = String(formData.get("session_id") ?? "");
+  if (!membership || !eventId || !sessionId) redirect("/dashboard");
+  const sessionNumber = Number(formData.get("session_number"));
+  const bestLapInput = String(formData.get("best_lap") ?? "").trim();
+  const bestLap = bestLapInput ? parseLap(bestLapInput) : null;
+  if (!sessionNumber || (bestLapInput && !bestLap)) redirect(`/dashboard/events/${eventId}/sessions/${sessionId}/edit?error=session`);
+  const { error } = await supabase.from("sessions").update({
+    session_number: sessionNumber,
+    started_at: String(formData.get("started_at") ?? "") || null,
+    best_lap_ms: bestLap,
+    source_url: String(formData.get("source_url") ?? "").trim() || null,
+    notes: String(formData.get("notes") ?? "").trim() || null,
+  }).eq("workspace_id", membership.workspace_id).eq("event_id", eventId).eq("id", sessionId);
+  if (error) redirect(`/dashboard/events/${eventId}/sessions/${sessionId}/edit?error=session`);
+  revalidatePath(`/dashboard/events/${eventId}`);
+  redirect(`/dashboard/events/${eventId}?tab=sessions`);
 }
 
 export async function startChecklist(formData: FormData) {

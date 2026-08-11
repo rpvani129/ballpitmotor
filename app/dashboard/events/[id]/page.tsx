@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addSession, startChecklist } from "@/app/actions";
+import { startChecklist } from "@/app/actions";
 import { formatLap } from "@/lib/grid";
 import { createClient } from "@/lib/supabase/server";
 import ChecklistEditor from "./ChecklistEditor";
@@ -68,9 +68,10 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const results = (rawResults ?? []) as ChecklistResult[];
   const checkedByItem = new Map(results.map((result) => [result.response?.item_id ?? result.template_item_id, result.response?.checked === true]));
   const checklistItems = run ? [...run.template_snapshot].sort((a, b) => a.position - b.position).map((item) => ({ id: item.id, label: item.label, checked: checkedByItem.get(item.id) ?? false })) : [];
-  const nextSession = sessions.length ? Math.max(...sessions.map((s) => s.session_number)) + 1 : 1;
   const timedLaps = sessions.map((session) => session.best_lap_ms).filter((lap): lap is number => lap != null);
   const eventFastestLap = timedLaps.length ? Math.min(...timedLaps) : null;
+  const requestedTab = query.tab ?? "sessions";
+  const activeTab = ["sessions", "checklist", "notes", "attachments"].includes(requestedTab) ? requestedTab : "sessions";
 
   return (
     <main className="dashboard-main">
@@ -94,23 +95,22 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         <div className="fastest-fact"><span>Fastest lap</span><strong>{formatLap(eventFastestLap)}</strong></div>
       </section>
 
-      <div className="event-content-grid">
+      <nav className="record-tabs" aria-label="Event sections">
+        <Link className={activeTab === "sessions" ? "active" : ""} href={`/dashboard/events/${id}?tab=sessions`}>Sessions <span>{sessions.length}</span></Link>
+        <Link className={activeTab === "checklist" ? "active" : ""} href={`/dashboard/events/${id}?tab=checklist`}>Checklist {run && <span>{run.status === "complete" ? "Done" : "Open"}</span>}</Link>
+        <Link className={activeTab === "notes" ? "active" : ""} href={`/dashboard/events/${id}?tab=notes`}>Notes</Link>
+        <Link className={activeTab === "attachments" ? "active" : ""} href={`/dashboard/events/${id}?tab=attachments`}>Attachments</Link>
+      </nav>
+
+      {activeTab === "sessions" && <div className="event-content-grid">
         <section className="section-block">
-          <div className="section-heading"><div><p className="eyebrow">LAP TIMES</p><h2>Sessions</h2></div><span>{sessions.length} logged</span></div>
+          <div className="section-heading"><div><p className="eyebrow">LAP TIMES</p><h2>Sessions</h2></div><div className="section-heading-actions"><span>{sessions.length} logged</span><Link className="button primary" href={`/dashboard/events/${event.id}/sessions/new`}>+ Add session</Link></div></div>
           {sessions.length ? <div className="session-table">
             <div className="session-head"><span>Session</span><span>Start</span><span>Best lap</span><span></span></div>
-            {sessions.map((session) => <div className={session.is_fastest ? "session-row fastest" : "session-row"} key={session.id}>
+            {sessions.map((session) => <Link href={`/dashboard/events/${event.id}/sessions/${session.id}/edit`} className={session.is_fastest ? "session-row fastest" : "session-row"} key={session.id}>
               <strong>{String(session.session_number).padStart(2, "0")}</strong><span>{session.started_at?.slice(0, 5) ?? "—"}</span><b>{session.best_lap_ms ? formatLap(session.best_lap_ms) : "Usage only"}</b><span>{session.is_fastest ? "FASTEST" : ""}</span>
-            </div>)}
-          </div> : <div className="empty-state compact"><strong>No sessions yet.</strong><p>Add the first Garmin result below.</p></div>}
-          <form className="inline-form" action={addSession}>
-            <input type="hidden" name="event_id" value={event.id} />
-            <label>Session<input name="session_number" type="number" min="1" defaultValue={nextSession} required /></label>
-            <label>Start<input name="started_at" type="time" /></label>
-            <label>Best lap <small>(optional)</small><input name="best_lap" placeholder="1:23.49" pattern="[0-9]+:[0-5]?[0-9](\.[0-9]{1,3})?" /></label>
-            <label>Source URL<input name="source_url" type="url" placeholder="Garmin screenshot" /></label>
-            <button className="button primary">Add session</button>
-          </form>
+            </Link>)}
+          </div> : <div className="empty-state compact"><strong>No sessions yet.</strong><p>Use Add Session to log the first result.</p></div>}
         </section>
 
         <aside className="event-sidebar">
@@ -121,13 +121,17 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           </section>
           <section className="setup-card"><p className="eyebrow">ON THE CAR</p><h2>Event setup</h2><dl><div><dt>Tires</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=tires">{event.tire_sets?.business_id ?? event.tire_set_business_id ?? "View tires"} ↗</Link></dd></div><div><dt>Front pads</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=pads">{event.front_pad_sets?.business_id ?? event.front_pad_set_business_id ?? "View pads"} ↗</Link></dd></div><div><dt>Rear pads</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=pads">{event.rear_pad_sets?.business_id ?? event.rear_pad_set_business_id ?? "View pads"} ↗</Link></dd></div></dl><Link className="setup-edit-link" href={`/dashboard/events/${event.id}/edit`}>Reassign event setup →</Link></section>
         </aside>
-      </div>
+      </div>}
 
-      <section className="section-block checklist-block">
+      {activeTab === "checklist" && <section className="section-block checklist-block tab-panel">
         <div className="section-heading"><div><p className="eyebrow">PRE-EVENT</p><h2>Safety checklist</h2></div>{run && <span className={`status-pill ${run.status}`}>{run.status}</span>}</div>
         {!run ? <form action={startChecklist}><input type="hidden" name="event_id" value={event.id} /><input type="hidden" name="vehicle_id" value={event.vehicle_id ?? ""} /><button className="button dark">Start pre-event checklist</button></form> :
           <ChecklistEditor eventId={event.id} runId={run.id} initialItems={checklistItems} />}
-      </section>
+      </section>}
+
+      {activeTab === "notes" && <section className="section-block tab-panel"><div className="section-heading"><div><p className="eyebrow">EVENT JOURNAL</p><h2>Notes</h2></div><Link className="button dark" href={`/dashboard/events/${event.id}/edit`}>Edit notes</Link></div>{event.notes ? <div className="note-card"><p>{event.notes}</p></div> : <div className="empty-state"><strong>No event notes yet.</strong><p>Add plans, setup decisions, observations, incidents, or follow-up from Edit Event.</p></div>}</section>}
+
+      {activeTab === "attachments" && <section className="section-block tab-panel"><div className="section-heading"><div><p className="eyebrow">EVENT FILES</p><h2>Attachments</h2></div></div><div className="empty-state"><strong>Attachment uploads are next.</strong><p>This tab is ready for Garmin screenshots, photos, receipts, setup sheets, and supporting files.</p></div></section>}
     </main>
   );
 }

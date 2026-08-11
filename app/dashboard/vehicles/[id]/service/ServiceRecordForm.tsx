@@ -1,0 +1,12 @@
+import Link from "next/link";
+
+type Record = { id: string; service_date: string; category: string; title: string; description: string | null; odometer_miles: number | null; vendor: string | null; cost: number | null; next_due_date: string | null; next_due_miles: number | null; source_url: string | null; };
+
+export default function ServiceRecordForm({ vehicleId, record, action }: { vehicleId: string; record?: Record; action: (formData: FormData) => void | Promise<void> }) {
+  return <form className="event-form record-form" action={action}><input type="hidden" name="vehicle_id" value={vehicleId} />{record && <input type="hidden" name="id" value={record.id} />}
+    <section className="form-section"><div className="form-section-number">01</div><div className="form-section-copy"><p className="eyebrow">SERVICE RECORD</p><h2>{record ? "Edit service" : "Add service"}</h2></div><div className="form-grid">
+      <label>Date<input name="service_date" type="date" defaultValue={record?.service_date ?? ""} required /></label><label>Category<select name="category" defaultValue={record?.category ?? "Maintenance"}><option>Maintenance</option><option>Repair</option><option>Inspection</option><option>Upgrade</option><option>Setup</option></select></label>
+      <label className="span-2">Title<input name="title" defaultValue={record?.title ?? ""} placeholder="Oil and filter change" required /></label><label>Mileage<input name="odometer_miles" type="number" min="0" defaultValue={record?.odometer_miles ?? ""} /></label><label>Vendor<input name="vendor" defaultValue={record?.vendor ?? ""} /></label><label>Cost<input name="cost" type="number" min="0" step="0.01" defaultValue={record?.cost ?? ""} /></label><label>Next due date<input name="next_due_date" type="date" defaultValue={record?.next_due_date ?? ""} /></label><label>Next due mileage<input name="next_due_miles" type="number" min="0" defaultValue={record?.next_due_miles ?? ""} /></label><label className="span-2">Receipt / source URL<input name="source_url" type="url" defaultValue={record?.source_url ?? ""} /></label><label className="span-2">Notes<textarea name="description" rows={5} defaultValue={record?.description ?? ""} /></label>
+    </div></section><div className="form-submit"><Link className="button ghost light" href={`/dashboard/vehicles/${vehicleId}`}>Cancel</Link><button className="button primary large">{record ? "Save service record" : "Add service record"}</button></div>
+  </form>;
+}
