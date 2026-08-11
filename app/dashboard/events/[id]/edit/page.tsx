@@ -11,10 +11,14 @@ export default async function EditEventPage({ params, searchParams }: { params: 
     supabase.from("events").select("*").eq("id", id).single(),
     supabase.from("vehicles").select("id,name,business_id,status").order("name"),
     supabase.from("tracks").select("id,name,short_name,is_active,track_configurations(id,name,is_active)").order("name"),
-    supabase.from("tire_sets").select("id,business_id,vehicle_id,status").order("business_id"),
-    supabase.from("pad_sets").select("id,business_id,vehicle_id,axle,status").order("business_id"),
+    supabase.from("tire_sets").select("id,business_id,vehicle_id,status,manufacturer,model,size,compound").order("business_id"),
+    supabase.from("pad_sets").select("id,business_id,vehicle_id,axle,status,manufacturer,model,compound").order("business_id"),
   ]);
   if (!event) notFound();
+  const tireLabel = (set: { business_id: string; manufacturer: string; model: string; size: string | null; compound: string | null; status: string }) =>
+    `${set.business_id} — ${[set.manufacturer, set.model, set.size, set.compound].filter(Boolean).join(" · ")}${set.status !== "active" ? ` (${set.status})` : ""}`;
+  const padLabel = (set: { business_id: string; manufacturer: string; model: string; compound: string | null; status: string }) =>
+    `${set.business_id} — ${[set.manufacturer, set.model, set.compound].filter(Boolean).join(" · ")}${set.status !== "active" ? ` (${set.status})` : ""}`;
 
   return (
     <main className="dashboard-main">
@@ -47,9 +51,9 @@ export default async function EditEventPage({ params, searchParams }: { params: 
         <section className="form-section">
           <div className="form-section-number">03</div><div className="form-section-copy"><p className="eyebrow">WHAT&apos;S ON THE CAR</p><h2>Consumables</h2></div>
           <div className="form-grid three">
-            <label>Tire set<select name="tire_set_id" defaultValue={event.tire_set_id ?? ""}><option value="">Not assigned</option>{tires?.map((x) => <option value={x.id} key={x.id}>{x.business_id}{x.status !== "active" ? ` (${x.status})` : ""}</option>)}</select></label>
-            <label>Front pads<select name="front_pad_set_id" defaultValue={event.front_pad_set_id ?? ""}><option value="">Not assigned</option>{pads?.filter((x) => x.axle === "front").map((x) => <option value={x.id} key={x.id}>{x.business_id}{x.status !== "active" ? ` (${x.status})` : ""}</option>)}</select></label>
-            <label>Rear pads<select name="rear_pad_set_id" defaultValue={event.rear_pad_set_id ?? ""}><option value="">Not assigned</option>{pads?.filter((x) => x.axle === "rear").map((x) => <option value={x.id} key={x.id}>{x.business_id}{x.status !== "active" ? ` (${x.status})` : ""}</option>)}</select></label>
+            <label>Tire set<select name="tire_set_id" defaultValue={event.tire_set_id ?? ""}><option value="">Not assigned</option>{tires?.map((x) => <option value={x.id} key={x.id}>{tireLabel(x)}</option>)}</select></label>
+            <label>Front pads<select name="front_pad_set_id" defaultValue={event.front_pad_set_id ?? ""}><option value="">Not assigned</option>{pads?.filter((x) => x.axle === "front").map((x) => <option value={x.id} key={x.id}>{padLabel(x)}</option>)}</select></label>
+            <label>Rear pads<select name="rear_pad_set_id" defaultValue={event.rear_pad_set_id ?? ""}><option value="">Not assigned</option>{pads?.filter((x) => x.axle === "rear").map((x) => <option value={x.id} key={x.id}>{padLabel(x)}</option>)}</select></label>
             <label className="span-3">Notes<textarea name="notes" rows={4} defaultValue={event.notes ?? ""} /></label>
           </div>
         </section>

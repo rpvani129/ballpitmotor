@@ -36,8 +36,9 @@ export default function ConsumablesClient({ tab, vehicles, tires, pads }: { tab:
   const dialog = useRef<HTMLDialogElement>(null);
   const [editing, setEditing] = useState<Asset | undefined>();
   const assets = tab === "tires" ? tires : pads;
-  const active = assets.filter(x => x.status === "active");
-  const retired = assets.filter(x => x.status !== "active");
+  const bySessionCount = (a: Asset, b: Asset) => b.totalSessions - a.totalSessions || a.business_id.localeCompare(b.business_id);
+  const active = assets.filter(x => x.status === "active").sort(bySessionCount);
+  const retired = assets.filter(x => x.status !== "active").sort(bySessionCount);
   const open = (asset?: Asset) => { setEditing(asset); dialog.current?.showModal(); };
   const rows = (items: Asset[]) => items.map(asset => <article className={`consumable-row ${asset.status !== "active" ? "retired" : ""}`} key={asset.id}>
     <div><strong>{asset.business_id}</strong><span>{asset.vehicles?.name ?? "Unassigned"}</span></div>
@@ -45,11 +46,22 @@ export default function ConsumablesClient({ tab, vehicles, tires, pads }: { tab:
     <div className="session-count"><strong>{asset.totalSessions}</strong><span>sessions</span>{asset.starting_sessions ? <small>{asset.loggedSessions} calculated + {asset.starting_sessions} previous</small> : <small>{asset.loggedSessions} calculated</small>}</div>
     <button className="button ghost compact-button" type="button" onClick={() => open(asset)}>Edit</button>
   </article>);
+  const padColumns = (items: Asset[]) => <div className="pad-axle-grid">
+    {(["front", "rear"] as const).map(axle => {
+      const axleItems = items.filter(asset => asset.axle === axle);
+      return <section className="pad-axle-column" key={axle}>
+        <div className="pad-axle-heading"><h3>{axle} axle</h3><span>{axleItems.length} sets</span></div>
+        <div className="consumable-list">{axleItems.length ? rows(axleItems) : <div className="empty-state compact"><strong>No {axle} sets.</strong></div>}</div>
+      </section>;
+    })}
+  </div>;
   return <>
     <nav className="consumable-tabs" aria-label="Consumable type"><Link className={tab === "tires" ? "active" : ""} href="?tab=tires">Tires <span>{tires.length}</span></Link><Link className={tab === "pads" ? "active" : ""} href="?tab=pads">Pads <span>{pads.length}</span></Link></nav>
     <section className="section-block consumable-inventory"><div className="section-heading"><div><p className="eyebrow">CURRENT INVENTORY</p><h2>{tab === "tires" ? "Tire sets" : "Pad sets"}</h2></div><button className="button primary" type="button" onClick={() => open()}>+ Add {tab === "tires" ? "tires" : "pads"}</button></div>
-      <div className="consumable-list">{active.length ? rows(active) : <div className="empty-state compact"><strong>No active sets.</strong></div>}</div>
-      {retired.length > 0 && <div className="retired-section"><p className="eyebrow">RETIRED / SOLD</p>{rows(retired)}</div>}
+      {tab === "pads"
+        ? padColumns(active)
+        : <div className="consumable-list">{active.length ? rows(active) : <div className="empty-state compact"><strong>No active sets.</strong></div>}</div>}
+      {retired.length > 0 && <div className="retired-section"><p className="eyebrow">RETIRED / SOLD</p>{tab === "pads" ? padColumns(retired) : rows(retired)}</div>}
     </section>
     <dialog className="asset-dialog" ref={dialog} onClick={e => { if (e.target === dialog.current) dialog.current?.close(); }}>
       <div className="dialog-heading"><div><p className="eyebrow">{editing ? "EDIT RECORD" : "NEW RECORD"}</p><h2>{editing ? editing.business_id : `Add ${tab === "tires" ? "tire" : "pad"} set`}</h2></div><button type="button" className="dialog-close" onClick={() => dialog.current?.close()} aria-label="Close">×</button></div>
