@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { eventBusinessId, parseLap, TRACKS } from "@/lib/grid";
+import { eventBusinessId, parseLap } from "@/lib/grid";
 import { getEventWeather } from "@/lib/weather";
+import { provisionWorkspace } from "@/lib/provision-workspace";
 
 async function authContext() {
   const supabase = await createClient();
@@ -59,62 +60,8 @@ export async function createBallPitWorkspace() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: workspaceId, error } = await supabase.rpc("create_workspace", {
-    workspace_name: "Ball Pit Motorsports",
-    workspace_slug: `ball-pit-motorsports-${user.id.slice(0, 8)}`,
-  });
-  if (error || !workspaceId) redirect("/dashboard?error=workspace");
-
-  await supabase.from("vehicles").insert([
-    { workspace_id: workspaceId, business_id: "GB", name: "Golf Ball" },
-    { workspace_id: workspaceId, business_id: "CB", name: "Cheese Ball" },
-    { workspace_id: workspaceId, business_id: "LB", name: "Low Ball" },
-  ]);
-  await supabase.from("event_settings").insert({ workspace_id: workspaceId });
-  await supabase.from("event_note_categories").insert(
-    ["General", "Plan", "Setup", "Driver Feedback", "Incident", "Follow-up"].map((name) => ({ workspace_id: workspaceId, name })),
-  );
-
-  for (const track of TRACKS) {
-    const { data: createdTrack } = await supabase.from("tracks").insert({
-      workspace_id: workspaceId,
-      name: track.name,
-      short_name: track.shortName,
-      latitude: track.latitude,
-      longitude: track.longitude,
-    }).select("id").single();
-    if (createdTrack) {
-      await supabase.from("track_configurations").insert(track.configurations.map((name) => ({
-        workspace_id: workspaceId,
-        track_id: createdTrack.id,
-        name,
-      })));
-    }
-  }
-
-  const { data: template } = await supabase
-    .from("checklist_templates")
-    .insert({ workspace_id: workspaceId, name: "Pre-Event Safety", version: 1 })
-    .select("id")
-    .single();
-  if (template) {
-    const labels = [
-      "Wheel torque and tire pressures checked",
-      "Brake pads, rotors and fluid checked",
-      "Fluids topped off and no leaks found",
-      "Battery, cameras and data system secured",
-      "Helmet, HANS, belts and safety gear packed",
-      "Tech sheet completed",
-    ];
-    await supabase.from("checklist_template_items").insert(
-      labels.map((label, position) => ({
-        workspace_id: workspaceId,
-        template_id: template.id,
-        position,
-        label,
-      })),
-    );
-  }
+  try { await provisionWorkspace(supabase, user); }
+  catch { redirect("/dashboard?error=workspace"); }
 
   revalidatePath("/dashboard");
   redirect("/dashboard");
@@ -603,6 +550,19 @@ export async function updateEventSettings(formData: FormData) {
   if (error) redirect("/dashboard/settings/events?error=settings");
   revalidatePath("/dashboard");
   redirect("/dashboard/settings/events?saved=settings");
+}
+
+export async function updateFirstTimeSettings(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  if (!membership) redirect("/dashboard");
+  const { error } = await supabase.from("event_settings").upsert({
+    workspace_id: membership.workspace_id,
+    show_first_time_popup: formData.get("show_first_time_popup") === "true",
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "workspace_id" });
+  if (error) redirect("/dashboard/settings/events?error=settings");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/settings/events");
 }
 
 export async function addEventNoteCategory(formData: FormData) {

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { provisionWorkspace } from "@/lib/provision-workspace";
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
@@ -13,6 +14,10 @@ export async function login(formData: FormData) {
   if (error) redirect(`/login?error=${error.message.toLowerCase().includes("confirm") ? "unconfirmed" : "invalid"}`);
   const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = user ? await supabase.from("user_profiles").select("onboarding_complete").eq("user_id", user.id).maybeSingle() : { data: null };
+  if (user && profile?.onboarding_complete) {
+    try { await provisionWorkspace(supabase, user); }
+    catch { redirect("/login?error=workspace"); }
+  }
   redirect(profile?.onboarding_complete ? "/dashboard" : "/new-user");
 }
 
@@ -34,13 +39,23 @@ export async function registerNewUser(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   if (!firstName || !lastName || !email || password.length < 8) redirect("/new-user?error=required");
+  const headerStore = await headers();
+  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+  const protocol = headerStore.get("x-forwarded-proto") ?? "https";
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { first_name: firstName, last_name: lastName, driver_name: driverName, driver_number: String(formData.get("driver_number") ?? "").trim(), team_name: String(formData.get("team_name") ?? "").trim() } },
+    options: {
+      data: { first_name: firstName, last_name: lastName, driver_name: driverName, driver_number: String(formData.get("driver_number") ?? "").trim(), team_name: String(formData.get("team_name") ?? "").trim() },
+      ...(host ? { emailRedirectTo: `${protocol}://${host}/auth/callback` } : {}),
+    },
   });
   if (error) redirect("/new-user?error=signup");
-  if (data.session) redirect("/dashboard");
+  if (data.session && data.user) {
+    try { await provisionWorkspace(supabase, data.user); }
+    catch { redirect("/login?error=workspace"); }
+    redirect("/dashboard");
+  }
   redirect("/login?message=check-email");
 }
 

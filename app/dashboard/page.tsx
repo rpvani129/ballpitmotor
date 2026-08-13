@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { createBallPitWorkspace } from "@/app/actions";
+import { createBallPitWorkspace, updateFirstTimeSettings } from "@/app/actions";
 import { createClient } from "@/lib/supabase/server";
 import EventIndex from "./EventIndex";
 import EventShareDialog from "./EventShareDialog";
+import FirstTimeDialog from "./FirstTimeDialog";
 
 type EventRow = {
   id: string;
@@ -33,9 +34,9 @@ export default async function DashboardPage() {
       <main className="dashboard-main onboarding">
         <p className="eyebrow">FIRST LAP</p>
         <h1>Build your paddock.</h1>
-        <p className="lede dark">Create the private Ball Pit workspace and load the starting vehicles and safety checklist.</p>
+        <p className="lede dark">Create your private workspace with starter tracks and the pre-event safety checklist.</p>
         <form action={createBallPitWorkspace}>
-          <button className="button primary">Create Ball Pit workspace</button>
+          <button className="button primary">Create my workspace</button>
         </form>
       </main>
     );
@@ -49,7 +50,7 @@ export default async function DashboardPage() {
       .order("business_id", { ascending: false }),
     supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id),
     supabase.from("sessions").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id),
-    supabase.from("event_settings").select("show_public_events").eq("workspace_id", membership.workspace_id).maybeSingle(),
+    supabase.from("event_settings").select("show_public_events,show_first_time_popup").eq("workspace_id", membership.workspace_id).maybeSingle(),
     supabase.from("user_profiles").select("public_slug").eq("user_id", user!.id).single(),
   ]);
 
@@ -58,6 +59,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="dashboard-main">
+      {(eventSettings?.show_first_time_popup ?? true) && <FirstTimeDialog action={updateFirstTimeSettings} />}
       <section className="page-hero compact">
         <div>
           <p className="eyebrow">BALL PIT WORKSPACE</p>

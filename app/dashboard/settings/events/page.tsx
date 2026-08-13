@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { addEventNoteCategory, deleteEventNoteCategory, updateEventSettings } from "@/app/actions";
+import { addEventNoteCategory, deleteEventNoteCategory, updateEventSettings, updateFirstTimeSettings } from "@/app/actions";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function EventSettingsPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
@@ -10,7 +10,7 @@ export default async function EventSettingsPage({ searchParams }: { searchParams
   const { data: membership } = await supabase.from("memberships").select("workspace_id,workspaces(name,slug)").eq("user_id", user!.id).eq("status", "active").limit(1).single();
   if (!membership) redirect("/dashboard");
   const [{ data: settings }, { data: categories }, { data: profile }] = await Promise.all([
-    supabase.from("event_settings").select("show_public_events").eq("workspace_id", membership.workspace_id).maybeSingle(),
+    supabase.from("event_settings").select("show_public_events,show_first_time_popup").eq("workspace_id", membership.workspace_id).maybeSingle(),
     supabase.from("event_note_categories").select("name,event_notes(count)").eq("workspace_id", membership.workspace_id).order("name"),
     supabase.from("user_profiles").select("public_slug").eq("user_id", user!.id).single(),
   ]);
@@ -21,6 +21,11 @@ export default async function EventSettingsPage({ searchParams }: { searchParams
     {query.saved && <p className="success-message">Event settings saved.</p>}
     {query.error && <p className="alert">{query.error === "category_in_use" ? "That category is assigned to an existing note and cannot be deleted." : "That change could not be saved."}</p>}
     <section className="settings-stack">
+      <form className="settings-card" action={updateFirstTimeSettings}>
+        <div><p className="eyebrow">GETTING STARTED</p><h2>First-time guide</h2><p>Show the setup guide when you open The Grid. It links to vehicles, tires and pads, tracks, and your first event.</p></div>
+        <label className="setting-toggle"><input type="checkbox" name="show_first_time_popup" value="true" defaultChecked={settings?.show_first_time_popup ?? true} /><span>Show the getting-started popup on login</span></label>
+        <div className="settings-actions"><button className="button primary">Save preference</button></div>
+      </form>
       <form className="settings-card" action={updateEventSettings}>
         <div><p className="eyebrow">PUBLIC EVENT VIEW</p><h2>Show events and lap-time details</h2><p>Publishes a read-only event index and event pages. Notes, checklists, and attachments remain private. Weather and tire/pad setup are visible.</p></div>
         <label className="setting-toggle"><input type="checkbox" name="show_public_events" value="true" defaultChecked={settings?.show_public_events ?? false} /><span>Public event pages enabled</span></label>
