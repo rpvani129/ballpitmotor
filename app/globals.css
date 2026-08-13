@@ -33,6 +33,7 @@ h1, h2 { font-family: var(--font-display); font-weight: 900; letter-spacing: -.0
 .button:hover { transform: translateY(-2px); }
 .button.primary { background: var(--red); border-color: var(--red); color: white; box-shadow: 4px 4px 0 var(--black); }
 .button.dark { background: var(--black); color: white; }
+.button.danger { background: var(--red-dark); border-color: var(--red-dark); color: white; }
 .button.ghost { background: transparent; color: var(--ink); }
 .button.ghost.light { border-color: #aaa299; color: white; }
 .button.google { background: var(--white); color: var(--ink); display: flex; gap: .75rem; width: 100%; }
@@ -216,6 +217,32 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
 .record-tabs a.active span { background: var(--red); color: var(--white); }
 .tab-panel { margin-top: 2rem; }
 .note-card { background: var(--white); border-left: 8px solid var(--red); font-family: var(--font-serif); font-size: 1.1rem; padding: 2rem; white-space: pre-wrap; }
+.event-note-list { display: grid; gap: 1rem; }
+.event-note-card { background: var(--white); border: 1px solid var(--line); border-left: 7px solid var(--red); display: block; padding: 1.35rem 1.5rem; transition: transform .15s, background .15s; }
+.event-note-card:hover { background: var(--paper-deep); transform: translateX(4px); }
+.event-note-meta { align-items: center; display: flex; gap: 1rem; justify-content: space-between; }
+.event-note-meta span { color: var(--red); font-size: .68rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.event-note-meta time, .event-note-card small { color: var(--muted); font-size: .72rem; }
+.event-note-card p { font-family: var(--font-serif); line-height: 1.55; margin: 1rem 0; white-space: pre-wrap; }
+.danger-zone { align-items: center; border: 1px solid var(--red); display: flex; gap: 2rem; justify-content: space-between; margin-bottom: 3rem; padding: 1.5rem; }
+.danger-zone h2 { font-size: 2rem; margin-bottom: .35rem; }
+.danger-zone p:last-child { color: var(--muted); margin-bottom: 0; }
+.confirm-dialog { background: var(--paper); border: 2px solid var(--ink); box-shadow: 10px 10px 0 rgba(17,17,17,.35); color: var(--ink); max-width: 480px; padding: 2rem; width: calc(100% - 2rem); }
+.confirm-dialog::backdrop { background: rgba(17,17,17,.7); }
+.confirm-dialog h2 { font-size: 2.8rem; line-height: .9; }
+.confirm-dialog > div { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1.5rem; }
+.attachment-upload { align-items: end; background: var(--white); border: 1px solid var(--line); display: grid; gap: 1rem; grid-template-columns: 1fr 220px; margin-bottom: 2rem; padding: 1.5rem; }
+.attachment-upload .button { justify-self: start; }
+.attachment-message { background: var(--paper-deep); border-left: 5px solid var(--red); padding: .8rem 1rem; }
+.attachment-grid { display: grid; gap: 1rem; grid-template-columns: repeat(3, minmax(0,1fr)); }
+.attachment-card { background: var(--white); border: 1px solid var(--line); min-width: 0; overflow: hidden; }
+.attachment-card > img, .attachment-file-icon { aspect-ratio: 16 / 10; background: var(--black); color: var(--white); display: flex; font-family: var(--font-display); font-size: 3rem; height: auto; object-fit: cover; width: 100%; }
+.attachment-file-icon { align-items: center; justify-content: center; }
+.attachment-card > div:last-child { display: flex; flex-direction: column; gap: .35rem; padding: 1rem; }
+.attachment-card span { color: var(--red); font-size: .65rem; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+.attachment-card strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-card p, .attachment-card small { color: var(--muted); margin: 0; }
+.attachment-actions { display: flex; gap: .5rem; margin-top: .75rem; }
 .record-form { margin-bottom: 3rem; }
 
 .vehicle-detail-hero { align-items: flex-end; border-bottom: 2px solid var(--ink); display: flex; justify-content: space-between; margin-bottom: 3rem; padding-bottom: 2rem; }
@@ -343,6 +370,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
   .configuration-editor-row { grid-template-columns: 1fr 1fr; }
   .configuration-editor-row .button { grid-column: 1 / -1; }
   .inventory-grid { grid-template-columns: 1fr; }
+  .attachment-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .consumable-row { grid-template-columns: 1fr 1fr auto; }
   .consumable-row > div:nth-child(2) { grid-column: 1 / 3; grid-row: 2; }
   .event-filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
@@ -358,6 +386,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
 }
 
 @media (max-width: 640px) {
+  .attachment-upload, .attachment-grid { grid-template-columns: 1fr; }
   .vehicle-detail-hero { align-items: flex-start; flex-direction: column; gap: 1.5rem; }
   .record-row { grid-template-columns: 1fr; }
   .record-row b { text-align: left; }
@@ -394,6 +423,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
   .record-tabs a { font-size: 1.35rem; padding-inline: .8rem; }
   .section-heading { align-items: flex-start; gap: 1rem; }
   .section-heading-actions { align-items: flex-end; flex-direction: column; }
+  .event-note-meta { align-items: flex-start; flex-direction: column; gap: .35rem; }
+  .danger-zone { align-items: stretch; flex-direction: column; }
   .vehicle-hero-actions { align-items: flex-start; flex-direction: column-reverse; }
   .vehicle-profile-summary { grid-template-columns: repeat(2, 1fr); }
   .vehicle-profile-summary > div:nth-child(3) { border-left: 0; padding-left: 0; }

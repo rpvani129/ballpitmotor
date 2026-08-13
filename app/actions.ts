@@ -500,13 +500,64 @@ export async function updateEvent(formData: FormData) {
     front_pad_set_business_id: frontPadSet?.business_id ?? null,
     rear_pad_set_business_id: rearPadSet?.business_id ?? null,
     status: String(formData.get("status") ?? "planned"),
-    notes: String(formData.get("notes") ?? "").trim() || null,
     ...(weather ?? {}),
   }).eq("workspace_id", membership.workspace_id).eq("id", eventId);
   if (error) redirect(`/dashboard/events/${eventId}/edit?error=save`);
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/events/${eventId}`);
   redirect(`/dashboard/events/${eventId}`);
+}
+
+const EVENT_NOTE_CATEGORIES = ["General", "Plan", "Setup", "Driver Feedback", "Incident", "Follow-up"] as const;
+
+export async function addEventNote(formData: FormData) {
+  const { supabase, user, membership } = await authContext();
+  const eventId = String(formData.get("event_id") ?? "");
+  if (!membership || !eventId) redirect("/dashboard");
+  const body = String(formData.get("body") ?? "").trim();
+  const submittedCategory = String(formData.get("category") ?? "General");
+  const category = EVENT_NOTE_CATEGORIES.includes(submittedCategory as (typeof EVENT_NOTE_CATEGORIES)[number]) ? submittedCategory : "General";
+  if (!body || body.length > 5000) redirect(`/dashboard/events/${eventId}/notes/new?error=note`);
+  const { data: event } = await supabase.from("events").select("id").eq("workspace_id", membership.workspace_id).eq("id", eventId).single();
+  if (!event) redirect("/dashboard");
+  const { error } = await supabase.from("event_notes").insert({
+    workspace_id: membership.workspace_id,
+    event_id: eventId,
+    category,
+    body,
+    created_by: user.id,
+  });
+  if (error) redirect(`/dashboard/events/${eventId}/notes/new?error=note`);
+  revalidatePath(`/dashboard/events/${eventId}`);
+  redirect(`/dashboard/events/${eventId}?tab=notes`);
+}
+
+export async function updateEventNote(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const eventId = String(formData.get("event_id") ?? "");
+  const noteId = String(formData.get("note_id") ?? "");
+  if (!membership || !eventId || !noteId) redirect("/dashboard");
+  const body = String(formData.get("body") ?? "").trim();
+  const submittedCategory = String(formData.get("category") ?? "General");
+  const category = EVENT_NOTE_CATEGORIES.includes(submittedCategory as (typeof EVENT_NOTE_CATEGORIES)[number]) ? submittedCategory : "General";
+  if (!body || body.length > 5000) redirect(`/dashboard/events/${eventId}/notes/${noteId}/edit?error=note`);
+  const { error } = await supabase.from("event_notes").update({ category, body, updated_at: new Date().toISOString() })
+    .eq("workspace_id", membership.workspace_id).eq("event_id", eventId).eq("id", noteId);
+  if (error) redirect(`/dashboard/events/${eventId}/notes/${noteId}/edit?error=note`);
+  revalidatePath(`/dashboard/events/${eventId}`);
+  redirect(`/dashboard/events/${eventId}?tab=notes`);
+}
+
+export async function deleteEventNote(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const eventId = String(formData.get("event_id") ?? "");
+  const noteId = String(formData.get("note_id") ?? "");
+  if (!membership || !eventId || !noteId) redirect("/dashboard");
+  const { error } = await supabase.from("event_notes").delete()
+    .eq("workspace_id", membership.workspace_id).eq("event_id", eventId).eq("id", noteId);
+  if (error) redirect(`/dashboard/events/${eventId}/notes/${noteId}/edit?error=delete`);
+  revalidatePath(`/dashboard/events/${eventId}`);
+  redirect(`/dashboard/events/${eventId}?tab=notes`);
 }
 
 export async function addSession(formData: FormData) {

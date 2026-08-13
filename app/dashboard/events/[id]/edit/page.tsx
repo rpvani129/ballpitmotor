@@ -54,7 +54,6 @@ export default async function EditEventPage({ params, searchParams }: { params: 
             <label>Tire set<select name="tire_set_id" defaultValue={event.tire_set_id ?? ""}><option value="">Not assigned</option>{tires?.map((x) => <option value={x.id} key={x.id}>{tireLabel(x)}</option>)}</select></label>
             <label>Front pads<select name="front_pad_set_id" defaultValue={event.front_pad_set_id ?? ""}><option value="">Not assigned</option>{pads?.filter((x) => x.axle === "front").map((x) => <option value={x.id} key={x.id}>{padLabel(x)}</option>)}</select></label>
             <label>Rear pads<select name="rear_pad_set_id" defaultValue={event.rear_pad_set_id ?? ""}><option value="">Not assigned</option>{pads?.filter((x) => x.axle === "rear").map((x) => <option value={x.id} key={x.id}>{padLabel(x)}</option>)}</select></label>
-            <label className="span-3">Notes<textarea name="notes" rows={4} defaultValue={event.notes ?? ""} /></label>
           </div>
         </section>
         <div className="form-submit"><Link className="button ghost light" href={`/dashboard/events/${id}`}>Cancel</Link><button className="button primary large">Save event</button></div>

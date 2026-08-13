@@ -4,6 +4,7 @@ import { startChecklist } from "@/app/actions";
 import { formatLap } from "@/lib/grid";
 import { createClient } from "@/lib/supabase/server";
 import ChecklistEditor from "./ChecklistEditor";
+import AttachmentManager from "./AttachmentManager";
 
 type Event = {
   id: string;
@@ -50,20 +51,30 @@ type ChecklistRun = {
 };
 
 type ChecklistResult = { response: { item_id?: string; checked?: boolean } | null; template_item_id: string | null };
+type EventNote = { id: string; category: string; body: string; created_by: string; created_at: string; updated_at: string };
+type EventAttachment = { id: string; storage_path: string; file_name: string; mime_type: string; file_size_bytes: number; attachment_type: string; caption: string | null; created_at: string };
 
 export default async function EventPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) {
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createClient();
-  const [{ data: rawEvent }, { data: rawSessions }, { data: rawRun }] = await Promise.all([
+  const [{ data: rawEvent }, { data: rawSessions }, { data: rawRun }, { data: rawNotes }, { data: rawAttachments }, { data: authData }] = await Promise.all([
     supabase.from("events").select("*,vehicles(name),tire_sets!events_tire_set_fkey(business_id),front_pad_sets:pad_sets!events_front_pad_set_fkey(business_id),rear_pad_sets:pad_sets!events_rear_pad_set_fkey(business_id)").eq("id", id).single(),
     supabase.from("sessions").select("id,session_number,started_at,best_lap_ms,is_fastest,source_url,notes").eq("event_id", id).order("session_number"),
     supabase.from("checklist_runs").select("id,status,template_snapshot").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("event_notes").select("id,category,body,created_by,created_at,updated_at").eq("event_id", id).order("created_at", { ascending: false }),
+    supabase.from("event_attachments").select("id,storage_path,file_name,mime_type,file_size_bytes,attachment_type,caption,created_at").eq("event_id", id).order("created_at", { ascending: false }),
+    supabase.auth.getUser(),
   ]);
   if (!rawEvent) notFound();
   const event = rawEvent as unknown as Event;
   const sessions = (rawSessions ?? []) as Session[];
   const run = rawRun as ChecklistRun | null;
+  const notes = (rawNotes ?? []) as EventNote[];
+  const attachments = (rawAttachments ?? []) as EventAttachment[];
+  const authorIds = [...new Set(notes.map((note) => note.created_by))];
+  const { data: authors } = authorIds.length ? await supabase.from("people").select("linked_user_id,display_name").in("linked_user_id", authorIds) : { data: [] };
+  const authorNames = new Map((authors ?? []).map((author) => [author.linked_user_id, author.display_name]));
   const { data: rawResults } = run ? await supabase.from("checklist_item_results").select("template_item_id,response").eq("checklist_run_id", run.id) : { data: [] };
   const results = (rawResults ?? []) as ChecklistResult[];
   const checkedByItem = new Map(results.map((result) => [result.response?.item_id ?? result.template_item_id, result.response?.checked === true]));
@@ -98,8 +109,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       <nav className="record-tabs" aria-label="Event sections">
         <Link className={activeTab === "sessions" ? "active" : ""} href={`/dashboard/events/${id}?tab=sessions`}>Sessions <span>{sessions.length}</span></Link>
         <Link className={activeTab === "checklist" ? "active" : ""} href={`/dashboard/events/${id}?tab=checklist`}>Checklist {run && <span>{run.status === "complete" ? "Done" : "Open"}</span>}</Link>
-        <Link className={activeTab === "notes" ? "active" : ""} href={`/dashboard/events/${id}?tab=notes`}>Notes</Link>
-        <Link className={activeTab === "attachments" ? "active" : ""} href={`/dashboard/events/${id}?tab=attachments`}>Attachments</Link>
+        <Link className={activeTab === "notes" ? "active" : ""} href={`/dashboard/events/${id}?tab=notes`}>Notes <span>{notes.length}</span></Link>
+        <Link className={activeTab === "attachments" ? "active" : ""} href={`/dashboard/events/${id}?tab=attachments`}>Attachments <span>{attachments.length}</span></Link>
       </nav>
 
       {activeTab === "sessions" && <div className="event-content-grid">
@@ -129,9 +140,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           <ChecklistEditor eventId={event.id} runId={run.id} initialItems={checklistItems} />}
       </section>}
 
-      {activeTab === "notes" && <section className="section-block tab-panel"><div className="section-heading"><div><p className="eyebrow">EVENT JOURNAL</p><h2>Notes</h2></div><Link className="button dark" href={`/dashboard/events/${event.id}/edit`}>Edit notes</Link></div>{event.notes ? <div className="note-card"><p>{event.notes}</p></div> : <div className="empty-state"><strong>No event notes yet.</strong><p>Add plans, setup decisions, observations, incidents, or follow-up from Edit Event.</p></div>}</section>}
+      {activeTab === "notes" && <section className="section-block tab-panel"><div className="section-heading"><div><p className="eyebrow">EVENT JOURNAL</p><h2>Notes</h2></div><div className="section-heading-actions"><span>{notes.length} entries</span><Link className="button primary" href={`/dashboard/events/${event.id}/notes/new`}>+ Add note</Link></div></div>{notes.length ? <div className="event-note-list">{notes.map((note) => { const created = new Date(note.created_at); const edited = note.updated_at !== note.created_at; const author = note.created_by === authData.user?.id ? "You" : authorNames.get(note.created_by) ?? "Workspace member"; return <Link className="event-note-card" href={`/dashboard/events/${event.id}/notes/${note.id}/edit`} key={note.id}><div className="event-note-meta"><span>{note.category}</span><time dateTime={note.created_at}>{created.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {created.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</time></div><p>{note.body}</p><small>{author}{edited ? " · Edited" : ""} · Edit →</small></Link>; })}</div> : <div className="empty-state"><strong>No event notes yet.</strong><p>Add plans, setup decisions, observations, incidents, results, or follow-up.</p></div>}</section>}
 
-      {activeTab === "attachments" && <section className="section-block tab-panel"><div className="section-heading"><div><p className="eyebrow">EVENT FILES</p><h2>Attachments</h2></div></div><div className="empty-state"><strong>Attachment uploads are next.</strong><p>This tab is ready for Garmin screenshots, photos, receipts, setup sheets, and supporting files.</p></div></section>}
+      {activeTab === "attachments" && <section className="section-block tab-panel"><div className="section-heading"><div><p className="eyebrow">EVENT FILES</p><h2>Attachments</h2></div><span>{attachments.length} files</span></div><AttachmentManager workspaceId={rawEvent.workspace_id} eventId={event.id} initialAttachments={attachments} /></section>}
     </main>
   );
 }
