@@ -630,7 +630,7 @@ export async function startChecklist(formData: FormData) {
   revalidatePath(`/dashboard/events/${eventId}`);
 }
 
-type ChecklistItemInput = { id: string; label: string; checked: boolean };
+type ChecklistItemInput = { id: string; label: string; checked: boolean; note: string };
 
 export async function saveChecklist(formData: FormData) {
   const { supabase, user, membership } = await authContext();
@@ -647,6 +647,7 @@ export async function saveChecklist(formData: FormData) {
       id: String(value.id ?? crypto.randomUUID()),
       label: String(value.label ?? "").trim().slice(0, 240),
       checked: value.checked === true,
+      note: String(value.note ?? "").trim().slice(0, 2000),
       position,
       is_required: true,
     };
@@ -664,6 +665,7 @@ export async function saveChecklist(formData: FormData) {
   let snapshot = items.map(({ id, label, position, is_required }) => ({ id, label, position, is_required }));
   let templateId = run.template_id;
   let templateVersion = run.template_version;
+  const originalItemIds = items.map((item) => item.id);
   if (makeTemplate) {
     const { data: latest } = await supabase.from("checklist_templates").select("version").eq("workspace_id", membership.workspace_id).order("version", { ascending: false }).limit(1).maybeSingle();
     templateVersion = (latest?.version ?? 0) + 1;
@@ -687,6 +689,7 @@ export async function saveChecklist(formData: FormData) {
     const { error: activateError } = await supabase.from("checklist_templates").update({ is_active: true }).eq("workspace_id", membership.workspace_id).eq("id", template.id);
     if (activateError) redirect(`/dashboard/events/${eventId}?error=template`);
     snapshot = templateItems;
+    await Promise.all(originalItemIds.map((itemId, position) => supabase.from("checklist_item_attachments").update({ checklist_item_key: snapshot[position]?.id }).eq("workspace_id", membership.workspace_id).eq("checklist_run_id", runId).eq("checklist_item_key", itemId)));
   }
 
   await supabase.from("checklist_item_results").delete().eq("checklist_run_id", runId);
@@ -696,6 +699,7 @@ export async function saveChecklist(formData: FormData) {
       checklist_run_id: runId,
       template_item_id: makeTemplate ? snapshot[position]?.id ?? null : null,
       response: { item_id: snapshot[position]?.id ?? item.id, checked: item.checked },
+      note: item.note || null,
       completed_by: user.id,
       completed_at: new Date().toISOString(),
     })),

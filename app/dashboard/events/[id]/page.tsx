@@ -50,7 +50,8 @@ type ChecklistRun = {
   template_snapshot: { id: string; label: string; position: number }[];
 };
 
-type ChecklistResult = { response: { item_id?: string; checked?: boolean } | null; template_item_id: string | null };
+type ChecklistResult = { response: { item_id?: string; checked?: boolean } | null; template_item_id: string | null; note: string | null };
+type ChecklistAttachment = { id: string; checklist_item_key: string; storage_path: string; file_name: string; mime_type: string; file_size_bytes: number };
 type EventNote = { id: string; category: string; body: string; created_by: string; created_at: string; updated_at: string };
 type EventAttachment = { id: string; storage_path: string; file_name: string; mime_type: string; file_size_bytes: number; attachment_type: string; caption: string | null; created_at: string };
 
@@ -75,10 +76,14 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const authorIds = [...new Set(notes.map((note) => note.created_by))];
   const { data: authors } = authorIds.length ? await supabase.from("people").select("linked_user_id,display_name").in("linked_user_id", authorIds) : { data: [] };
   const authorNames = new Map((authors ?? []).map((author) => [author.linked_user_id, author.display_name]));
-  const { data: rawResults } = run ? await supabase.from("checklist_item_results").select("template_item_id,response").eq("checklist_run_id", run.id) : { data: [] };
+  const [{ data: rawResults }, { data: rawChecklistAttachments }] = run ? await Promise.all([
+    supabase.from("checklist_item_results").select("template_item_id,response,note").eq("checklist_run_id", run.id),
+    supabase.from("checklist_item_attachments").select("id,checklist_item_key,storage_path,file_name,mime_type,file_size_bytes").eq("checklist_run_id", run.id).order("created_at"),
+  ]) : [{ data: [] }, { data: [] }];
   const results = (rawResults ?? []) as ChecklistResult[];
-  const checkedByItem = new Map(results.map((result) => [result.response?.item_id ?? result.template_item_id, result.response?.checked === true]));
-  const checklistItems = run ? [...run.template_snapshot].sort((a, b) => a.position - b.position).map((item) => ({ id: item.id, label: item.label, checked: checkedByItem.get(item.id) ?? false })) : [];
+  const resultByItem = new Map(results.map((result) => [result.response?.item_id ?? result.template_item_id, result]));
+  const checklistItems = run ? [...run.template_snapshot].sort((a, b) => a.position - b.position).map((item) => ({ id: item.id, label: item.label, checked: resultByItem.get(item.id)?.response?.checked ?? false, note: resultByItem.get(item.id)?.note ?? "" })) : [];
+  const checklistAttachments = (rawChecklistAttachments ?? []) as ChecklistAttachment[];
   const timedLaps = sessions.map((session) => session.best_lap_ms).filter((lap): lap is number => lap != null);
   const eventFastestLap = timedLaps.length ? Math.min(...timedLaps) : null;
   const requestedTab = query.tab ?? "sessions";
@@ -137,7 +142,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       {activeTab === "checklist" && <section className="section-block checklist-block tab-panel">
         <div className="section-heading"><div><p className="eyebrow">PRE-EVENT</p><h2>Safety checklist</h2></div>{run && <span className={`status-pill ${run.status}`}>{run.status}</span>}</div>
         {!run ? <form action={startChecklist}><input type="hidden" name="event_id" value={event.id} /><input type="hidden" name="vehicle_id" value={event.vehicle_id ?? ""} /><button className="button dark">Start pre-event checklist</button></form> :
-          <ChecklistEditor eventId={event.id} runId={run.id} initialItems={checklistItems} />}
+          <ChecklistEditor workspaceId={rawEvent.workspace_id} eventId={event.id} runId={run.id} initialItems={checklistItems} initialAttachments={checklistAttachments} />}
       </section>}
 
       {activeTab === "notes" && <section className="section-block tab-panel"><div className="section-heading"><div><p className="eyebrow">EVENT JOURNAL</p><h2>Notes</h2></div><div className="section-heading-actions"><span>{notes.length} entries</span><Link className="button primary" href={`/dashboard/events/${event.id}/notes/new`}>+ Add note</Link></div></div>{notes.length ? <div className="event-note-list">{notes.map((note) => { const created = new Date(note.created_at); const edited = note.updated_at !== note.created_at; const author = note.created_by === authData.user?.id ? "You" : authorNames.get(note.created_by) ?? "Workspace member"; return <Link className="event-note-card" href={`/dashboard/events/${event.id}/notes/${note.id}/edit`} key={note.id}><div className="event-note-meta"><span>{note.category}</span><time dateTime={note.created_at}>{created.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {created.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</time></div><p>{note.body}</p><small>{author}{edited ? " · Edited" : ""} · Edit →</small></Link>; })}</div> : <div className="empty-state"><strong>No event notes yet.</strong><p>Add plans, setup decisions, observations, incidents, results, or follow-up.</p></div>}</section>}

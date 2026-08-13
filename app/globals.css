@@ -203,10 +203,18 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
 .checklist input { accent-color: var(--red); min-height: auto; width: 20px; }
 .checklist .button { grid-column: 1 / -1; margin-top: 1rem; justify-self: start; }
 .checklist-editor-list { border-top: 2px solid var(--ink); }
-.checklist-editor-row { align-items: center; border-bottom: 1px solid var(--line); display: grid; gap: 1rem; grid-template-columns: 28px 1fr auto; padding: .8rem .25rem; }
-.checklist-editor-row > input[type="text"], .checklist-editor-row > input:not([type]) { background: transparent; border: 0; font-family: var(--font-serif); font-size: 1rem; }
+.checklist-editor-row { align-items: start; border-bottom: 1px solid var(--line); display: grid; gap: 1rem; grid-template-columns: 28px 1fr auto; padding: 1rem .25rem; }
+.checklist-item-fields { display: grid; gap: .65rem; }
+.checklist-item-fields > input { background: transparent; border: 0; font-family: var(--font-serif); font-size: 1rem; min-height: 32px; padding: .25rem 0; }
+.checklist-item-fields > textarea { background: var(--white); font-family: var(--font-serif); min-height: 64px; padding: .65rem; resize: vertical; text-transform: none; }
 .checklist-toggle { accent-color: var(--red); height: 22px; min-height: 22px; width: 22px; }
 .checklist-remove { background: transparent; border: 0; color: var(--red); font-size: .65rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.checklist-evidence { align-items: center; display: flex; flex-wrap: wrap; gap: .5rem; }
+.checklist-evidence span { align-items: center; background: var(--paper-deep); display: flex; font-size: .72rem; gap: .45rem; max-width: 100%; padding: .4rem .55rem; }
+.checklist-evidence span a { color: var(--red); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.checklist-evidence span button { background: transparent; border: 0; color: var(--red); font-size: 1rem; line-height: 1; padding: 0; }
+.checklist-evidence > label { color: var(--red); cursor: pointer; font-size: .66rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.checklist-evidence > label input { display: none; }
 .checklist-add { margin-top: 1rem; }
 .checklist-actions { align-items: center; display: flex; flex-wrap: wrap; gap: .75rem; justify-content: flex-end; margin-top: 2rem; }
 .checklist-note { margin: 1rem 0 0 auto; max-width: 620px; text-align: right; }
