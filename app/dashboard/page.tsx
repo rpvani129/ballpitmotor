@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createBallPitWorkspace } from "@/app/actions";
 import { createClient } from "@/lib/supabase/server";
 import EventIndex from "./EventIndex";
+import EventShareDialog from "./EventShareDialog";
 
 type EventRow = {
   id: string;
@@ -21,7 +22,7 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser();
   const { data: membership } = await supabase
     .from("memberships")
-    .select("workspace_id, role, workspaces(name)")
+    .select("workspace_id, role, workspaces(name,slug)")
     .eq("user_id", user!.id)
     .eq("status", "active")
     .limit(1)
@@ -40,7 +41,7 @@ export default async function DashboardPage() {
     );
   }
 
-  const [{ data: events }, { count: vehicleCount }, { count: sessionCount }] = await Promise.all([
+  const [{ data: events }, { count: vehicleCount }, { count: sessionCount }, { data: eventSettings }] = await Promise.all([
     supabase.from("events")
       .select("id,business_id,event_date,event_name,track_name,configuration_name,organization_name,status,vehicles(name),sessions(best_lap_ms)")
       .eq("workspace_id", membership.workspace_id)
@@ -48,10 +49,12 @@ export default async function DashboardPage() {
       .order("business_id", { ascending: false }),
     supabase.from("vehicles").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id),
     supabase.from("sessions").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id),
+    supabase.from("event_settings").select("show_public_events").eq("workspace_id", membership.workspace_id).maybeSingle(),
   ]);
 
   const rows = (events ?? []) as unknown as EventRow[];
   const upcoming = rows.filter((event) => event.status === "planned").length;
+  const workspace = membership.workspaces as unknown as { name: string; slug: string };
 
   return (
     <main className="dashboard-main">
@@ -60,7 +63,7 @@ export default async function DashboardPage() {
           <p className="eyebrow">BALL PIT WORKSPACE</p>
           <h1>Track life.<br />Handled.</h1>
         </div>
-        <Link className="button primary" href="/dashboard/events/new">Create event</Link>
+        <div className="hero-actions"><EventShareDialog workspaceSlug={workspace.slug} publicEnabled={eventSettings?.show_public_events ?? false} events={rows} /><Link className="button ghost" href="/dashboard/settings/events">Event settings</Link><Link className="button primary" href="/dashboard/events/new">Create event</Link></div>
       </section>
 
       <section className="stat-grid" aria-label="Workspace summary">

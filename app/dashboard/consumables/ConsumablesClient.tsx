@@ -41,8 +41,8 @@ export default function ConsumablesClient({ tab, vehicles, tires, pads }: { tab:
   const retired = assets.filter(x => x.status !== "active").sort(bySessionCount);
   const open = (asset?: Asset) => { setEditing(asset); dialog.current?.showModal(); };
   const rows = (items: Asset[]) => items.map(asset => <article className={`consumable-row ${asset.status !== "active" ? "retired" : ""}`} key={asset.id}>
-    <div><strong>{asset.business_id}</strong><span>{asset.vehicles?.name ?? "Unassigned"}</span></div>
-    <div><b>{asset.manufacturer} {asset.model}</b><span>{tab === "tires" ? asset.size : asset.axle}{asset.compound ? ` · ${asset.compound}` : ""}</span></div>
+    <div><strong>{asset.manufacturer} {asset.model}</strong><span>{tab === "tires" ? asset.size : `${asset.axle} axle`}{asset.compound ? ` · ${asset.compound}` : ""}</span></div>
+    <div><b className="consumable-code">{asset.business_id}</b><span>{asset.vehicles?.name ?? "Unassigned"}</span></div>
     <div className="session-count"><strong>{asset.totalSessions}</strong><span>sessions</span>{asset.starting_sessions ? <small>{asset.loggedSessions} calculated + {asset.starting_sessions} previous</small> : <small>{asset.loggedSessions} calculated</small>}</div>
     <button className="button ghost compact-button" type="button" onClick={() => open(asset)}>Edit</button>
   </article>);

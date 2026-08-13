@@ -42,6 +42,10 @@ export async function createBallPitWorkspace() {
     { workspace_id: workspaceId, business_id: "CB", name: "Cheese Ball" },
     { workspace_id: workspaceId, business_id: "LB", name: "Low Ball" },
   ]);
+  await supabase.from("event_settings").insert({ workspace_id: workspaceId });
+  await supabase.from("event_note_categories").insert(
+    ["General", "Plan", "Setup", "Driver Feedback", "Incident", "Follow-up"].map((name) => ({ workspace_id: workspaceId, name })),
+  );
 
   for (const track of TRACKS) {
     const { data: createdTrack } = await supabase.from("tracks").insert({
@@ -508,15 +512,14 @@ export async function updateEvent(formData: FormData) {
   redirect(`/dashboard/events/${eventId}`);
 }
 
-const EVENT_NOTE_CATEGORIES = ["General", "Plan", "Setup", "Driver Feedback", "Incident", "Follow-up"] as const;
-
 export async function addEventNote(formData: FormData) {
   const { supabase, user, membership } = await authContext();
   const eventId = String(formData.get("event_id") ?? "");
   if (!membership || !eventId) redirect("/dashboard");
   const body = String(formData.get("body") ?? "").trim();
   const submittedCategory = String(formData.get("category") ?? "General");
-  const category = EVENT_NOTE_CATEGORIES.includes(submittedCategory as (typeof EVENT_NOTE_CATEGORIES)[number]) ? submittedCategory : "General";
+  const { data: validCategory } = await supabase.from("event_note_categories").select("name").eq("workspace_id", membership.workspace_id).eq("name", submittedCategory).maybeSingle();
+  const category = validCategory?.name ?? "General";
   if (!body || body.length > 5000) redirect(`/dashboard/events/${eventId}/notes/new?error=note`);
   const { data: event } = await supabase.from("events").select("id").eq("workspace_id", membership.workspace_id).eq("id", eventId).single();
   if (!event) redirect("/dashboard");
@@ -539,7 +542,8 @@ export async function updateEventNote(formData: FormData) {
   if (!membership || !eventId || !noteId) redirect("/dashboard");
   const body = String(formData.get("body") ?? "").trim();
   const submittedCategory = String(formData.get("category") ?? "General");
-  const category = EVENT_NOTE_CATEGORIES.includes(submittedCategory as (typeof EVENT_NOTE_CATEGORIES)[number]) ? submittedCategory : "General";
+  const { data: validCategory } = await supabase.from("event_note_categories").select("name").eq("workspace_id", membership.workspace_id).eq("name", submittedCategory).maybeSingle();
+  const category = validCategory?.name ?? "General";
   if (!body || body.length > 5000) redirect(`/dashboard/events/${eventId}/notes/${noteId}/edit?error=note`);
   const { error } = await supabase.from("event_notes").update({ category, body, updated_at: new Date().toISOString() })
     .eq("workspace_id", membership.workspace_id).eq("event_id", eventId).eq("id", noteId);
@@ -558,6 +562,42 @@ export async function deleteEventNote(formData: FormData) {
   if (error) redirect(`/dashboard/events/${eventId}/notes/${noteId}/edit?error=delete`);
   revalidatePath(`/dashboard/events/${eventId}`);
   redirect(`/dashboard/events/${eventId}?tab=notes`);
+}
+
+export async function updateEventSettings(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  if (!membership) redirect("/dashboard");
+  const { error } = await supabase.from("event_settings").upsert({
+    workspace_id: membership.workspace_id,
+    show_public_events: formData.get("show_public_events") === "true",
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "workspace_id" });
+  if (error) redirect("/dashboard/settings/events?error=settings");
+  revalidatePath("/dashboard");
+  redirect("/dashboard/settings/events?saved=settings");
+}
+
+export async function addEventNoteCategory(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  if (!membership) redirect("/dashboard");
+  const name = String(formData.get("name") ?? "").trim().replace(/\s+/g, " ").slice(0, 60);
+  if (!name) redirect("/dashboard/settings/events?error=category");
+  const { error } = await supabase.from("event_note_categories").insert({ workspace_id: membership.workspace_id, name });
+  if (error) redirect("/dashboard/settings/events?error=category");
+  revalidatePath("/dashboard/settings/events");
+  redirect("/dashboard/settings/events?saved=category");
+}
+
+export async function deleteEventNoteCategory(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  if (!membership) redirect("/dashboard");
+  const name = String(formData.get("name") ?? "");
+  const { count } = await supabase.from("event_notes").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id).eq("category", name);
+  if ((count ?? 0) > 0) redirect("/dashboard/settings/events?error=category_in_use");
+  const { error } = await supabase.from("event_note_categories").delete().eq("workspace_id", membership.workspace_id).eq("name", name);
+  if (error) redirect("/dashboard/settings/events?error=category");
+  revalidatePath("/dashboard/settings/events");
+  redirect("/dashboard/settings/events?saved=deleted");
 }
 
 export async function addSession(formData: FormData) {

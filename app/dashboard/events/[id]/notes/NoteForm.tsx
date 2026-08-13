@@ -2,7 +2,7 @@ import Link from "next/link";
 
 type EventNote = { id: string; category: string; body: string };
 
-export default function NoteForm({ eventId, note, action }: { eventId: string; note?: EventNote; action: (formData: FormData) => void | Promise<void> }) {
+export default function NoteForm({ eventId, categories, note, action }: { eventId: string; categories: string[]; note?: EventNote; action: (formData: FormData) => void | Promise<void> }) {
   return <form className="event-form record-form" action={action}>
     <input type="hidden" name="event_id" value={eventId} />
     {note && <input type="hidden" name="note_id" value={note.id} />}
@@ -10,7 +10,7 @@ export default function NoteForm({ eventId, note, action }: { eventId: string; n
       <div className="form-section-number">01</div>
       <div className="form-section-copy"><p className="eyebrow">EVENT JOURNAL</p><h2>{note ? "Edit note" : "Add note"}</h2></div>
       <div className="form-grid">
-        <label>Category<select name="category" defaultValue={note?.category ?? "General"}><option>General</option><option>Plan</option><option>Setup</option><option>Driver Feedback</option><option>Incident</option><option>Follow-up</option></select></label>
+        <label>Category<select name="category" defaultValue={note?.category ?? categories[0] ?? "General"}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
         <label className="span-2">Note<textarea name="body" rows={10} maxLength={5000} defaultValue={note?.body ?? ""} placeholder="Add plans, setup decisions, observations, incidents, results, or follow-up." required /></label>
       </div>
     </section>

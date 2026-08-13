@@ -26,9 +26,9 @@ type Event = {
   tire_set_business_id: string | null;
   front_pad_set_business_id: string | null;
   rear_pad_set_business_id: string | null;
-  tire_sets: { business_id: string } | null;
-  front_pad_sets: { business_id: string } | null;
-  rear_pad_sets: { business_id: string } | null;
+  tire_sets: { business_id: string; manufacturer: string; model: string; size: string | null; compound: string | null } | null;
+  front_pad_sets: { business_id: string; manufacturer: string; model: string; compound: string | null } | null;
+  rear_pad_sets: { business_id: string; manufacturer: string; model: string; compound: string | null } | null;
   notes: string | null;
   vehicle_id: string | null;
   vehicles: { name: string } | null;
@@ -60,7 +60,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const query = await searchParams;
   const supabase = await createClient();
   const [{ data: rawEvent }, { data: rawSessions }, { data: rawRun }, { data: rawNotes }, { data: rawAttachments }, { data: authData }] = await Promise.all([
-    supabase.from("events").select("*,vehicles(name),tire_sets!events_tire_set_fkey(business_id),front_pad_sets:pad_sets!events_front_pad_set_fkey(business_id),rear_pad_sets:pad_sets!events_rear_pad_set_fkey(business_id)").eq("id", id).single(),
+    supabase.from("events").select("*,vehicles(name),tire_sets!events_tire_set_fkey(business_id,manufacturer,model,size,compound),front_pad_sets:pad_sets!events_front_pad_set_fkey(business_id,manufacturer,model,compound),rear_pad_sets:pad_sets!events_rear_pad_set_fkey(business_id,manufacturer,model,compound)").eq("id", id).single(),
     supabase.from("sessions").select("id,session_number,started_at,best_lap_ms,is_fastest,source_url,notes").eq("event_id", id).order("session_number"),
     supabase.from("checklist_runs").select("id,status,template_snapshot").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("event_notes").select("id,category,body,created_by,created_at,updated_at").eq("event_id", id).order("created_at", { ascending: false }),
@@ -135,7 +135,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <h2>{event.conditions ?? "Weather pending"}</h2>
             <dl><div><dt>Track</dt><dd>{event.track_condition ?? "—"}</dd></div><div><dt>Wind</dt><dd>{event.wind_speed_mph != null ? `${event.wind_speed_mph.toFixed(1)} mph` : "—"}</dd></div><div><dt>Humidity</dt><dd>{event.humidity_pct != null ? `${event.humidity_pct.toFixed(0)}%` : "—"}</dd></div><div><dt>Rain</dt><dd>{event.precipitation_in != null ? `${event.precipitation_in.toFixed(2)} in` : "—"}</dd></div></dl>
           </section>
-          <section className="setup-card"><p className="eyebrow">ON THE CAR</p><h2>Event setup</h2><dl><div><dt>Tires</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=tires">{event.tire_sets?.business_id ?? event.tire_set_business_id ?? "View tires"} ↗</Link></dd></div><div><dt>Front pads</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=pads">{event.front_pad_sets?.business_id ?? event.front_pad_set_business_id ?? "View pads"} ↗</Link></dd></div><div><dt>Rear pads</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=pads">{event.rear_pad_sets?.business_id ?? event.rear_pad_set_business_id ?? "View pads"} ↗</Link></dd></div></dl><Link className="setup-edit-link" href={`/dashboard/events/${event.id}/edit`}>Reassign event setup →</Link></section>
+          <section className="setup-card"><p className="eyebrow">ON THE CAR</p><h2>Event setup</h2><dl><div><dt>Tires</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=tires"><strong>{event.tire_sets ? [event.tire_sets.manufacturer,event.tire_sets.model,event.tire_sets.size,event.tire_sets.compound].filter(Boolean).join(" · ") : "View tires"}</strong>{event.tire_sets && <small>{event.tire_sets.business_id}</small>} ↗</Link></dd></div><div><dt>Front pads</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=pads"><strong>{event.front_pad_sets ? [event.front_pad_sets.manufacturer,event.front_pad_sets.model,event.front_pad_sets.compound].filter(Boolean).join(" · ") : "View pads"}</strong>{event.front_pad_sets && <small>{event.front_pad_sets.business_id}</small>} ↗</Link></dd></div><div><dt>Rear pads</dt><dd><Link target="_blank" rel="noreferrer" href="/dashboard/consumables?tab=pads"><strong>{event.rear_pad_sets ? [event.rear_pad_sets.manufacturer,event.rear_pad_sets.model,event.rear_pad_sets.compound].filter(Boolean).join(" · ") : "View pads"}</strong>{event.rear_pad_sets && <small>{event.rear_pad_sets.business_id}</small>} ↗</Link></dd></div></dl><Link className="setup-edit-link" href={`/dashboard/events/${event.id}/edit`}>Reassign event setup →</Link></section>
         </aside>
       </div>}
 

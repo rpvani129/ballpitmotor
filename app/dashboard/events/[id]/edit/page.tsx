@@ -16,9 +16,9 @@ export default async function EditEventPage({ params, searchParams }: { params: 
   ]);
   if (!event) notFound();
   const tireLabel = (set: { business_id: string; manufacturer: string; model: string; size: string | null; compound: string | null; status: string }) =>
-    `${set.business_id} — ${[set.manufacturer, set.model, set.size, set.compound].filter(Boolean).join(" · ")}${set.status !== "active" ? ` (${set.status})` : ""}`;
+    `${[set.manufacturer, set.model, set.size, set.compound].filter(Boolean).join(" · ")} — ${set.business_id}${set.status !== "active" ? ` (${set.status})` : ""}`;
   const padLabel = (set: { business_id: string; manufacturer: string; model: string; compound: string | null; status: string }) =>
-    `${set.business_id} — ${[set.manufacturer, set.model, set.compound].filter(Boolean).join(" · ")}${set.status !== "active" ? ` (${set.status})` : ""}`;
+    `${[set.manufacturer, set.model, set.compound].filter(Boolean).join(" · ")} — ${set.business_id}${set.status !== "active" ? ` (${set.status})` : ""}`;
 
   return (
     <main className="dashboard-main">
