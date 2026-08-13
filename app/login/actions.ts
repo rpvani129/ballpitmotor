@@ -10,7 +10,7 @@ export async function login(formData: FormData) {
     email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? ""),
   });
-  if (error) redirect("/login?error=invalid");
+  if (error) redirect(`/login?error=${error.message.toLowerCase().includes("confirm") ? "unconfirmed" : "invalid"}`);
   const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = user ? await supabase.from("user_profiles").select("onboarding_complete").eq("user_id", user.id).maybeSingle() : { data: null };
   redirect(profile?.onboarding_complete ? "/dashboard" : "/new-user");

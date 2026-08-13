@@ -16,7 +16,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <p className="eyebrow">PRIVATE MVP</p>
           <h2>Get on grid.</h2>
           <p className="muted">Sign in to the Ball Pit Motorsports workspace.</p>
-          {query.error && <p className="alert">That did not work. Please try again.</p>}
+          {query.error && <p className="alert">{query.error === "unconfirmed" ? "Your email has not been confirmed. Check your email for the confirmation link." : "That did not work. Check your email and password, then try again."}</p>}
           {query.message && <p className="success">Check your email to confirm your account.</p>}
           <form className="stack-form">
             <label>Email<input name="email" type="email" autoComplete="email" required /></label>
