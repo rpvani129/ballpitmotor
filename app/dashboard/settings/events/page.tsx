@@ -9,12 +9,12 @@ export default async function EventSettingsPage({ searchParams }: { searchParams
   const { data: { user } } = await supabase.auth.getUser();
   const { data: membership } = await supabase.from("memberships").select("workspace_id,workspaces(name,slug)").eq("user_id", user!.id).eq("status", "active").limit(1).single();
   if (!membership) redirect("/dashboard");
-  const [{ data: settings }, { data: categories }] = await Promise.all([
+  const [{ data: settings }, { data: categories }, { data: profile }] = await Promise.all([
     supabase.from("event_settings").select("show_public_events").eq("workspace_id", membership.workspace_id).maybeSingle(),
     supabase.from("event_note_categories").select("name,event_notes(count)").eq("workspace_id", membership.workspace_id).order("name"),
+    supabase.from("user_profiles").select("public_slug").eq("user_id", user!.id).single(),
   ]);
-  const workspace = membership.workspaces as unknown as { name: string; slug: string };
-  const publicUrl = `/events/${workspace.slug}`;
+  const publicUrl = `/events/${profile!.public_slug}`;
   return <main className="dashboard-main">
     <Link className="back-link" href="/dashboard">← Events</Link>
     <section className="page-title"><p className="eyebrow">EVENT SETTINGS</p><h1>Control the public grid.</h1><p>Choose what visitors can see and manage the categories used by your event journal.</p></section>

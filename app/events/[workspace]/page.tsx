@@ -4,7 +4,7 @@ import { formatLap } from "@/lib/grid";
 import { createClient } from "@/lib/supabase/server";
 
 type PublicEvent = { business_id: string; event_date: string; event_name: string; track_name: string; configuration_name: string; organization_name: string | null; vehicle_name: string | null; session_count: number; fastest_lap_ms: number | null };
-type PublicIndex = { workspace: { name: string; slug: string }; events: PublicEvent[] };
+type PublicIndex = { workspace: { name: string }; events: PublicEvent[] };
 
 export default async function PublicEventIndex({ params }: { params: Promise<{ workspace: string }> }) {
   const { workspace } = await params;

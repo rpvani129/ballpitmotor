@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 type Setup = { description: string; code: string } | null;
 type PublicEvent = { business_id: string; event_date: string; event_name: string; track_name: string; configuration_name: string; organization_name: string | null; vehicle_name: string | null; temperature_f: number | null; conditions: string | null; wind_speed_mph: number | null; humidity_pct: number | null; precipitation_in: number | null; track_condition: string | null; tire: Setup; front_pad: Setup; rear_pad: Setup };
 type Session = { session_number: number; started_at: string | null; best_lap_ms: number | null; is_fastest: boolean };
-type PublicDetail = { workspace: { name: string; slug: string }; event: PublicEvent; sessions: Session[] };
+type PublicDetail = { workspace: { name: string }; event: PublicEvent; sessions: Session[] };
 
 const setupValue = (setup: Setup) => setup ? <><strong>{setup.description}</strong><small>{setup.code}</small></> : <span>Not recorded</span>;
 

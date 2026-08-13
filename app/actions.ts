@@ -26,6 +26,34 @@ export async function signOut() {
   redirect("/login");
 }
 
+export async function saveUserProfile(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const firstName = String(formData.get("first_name") ?? "").trim().slice(0, 80);
+  const lastName = String(formData.get("last_name") ?? "").trim().slice(0, 80);
+  const driverName = (String(formData.get("driver_name") ?? "").trim() || `${firstName}-${lastName}`).slice(0, 120);
+  if (!firstName || !lastName || !driverName) redirect("/new-user?error=required");
+  const profile = { user_id: user.id, first_name: firstName, last_name: lastName, driver_name: driverName, driver_number: String(formData.get("driver_number") ?? "").trim().slice(0, 20) || null, team_name: String(formData.get("team_name") ?? "").trim().slice(0, 120) || null, onboarding_complete: true };
+  const { error } = await supabase.from("user_profiles").upsert(profile, { onConflict: "user_id" });
+  if (error) redirect(`${formData.get("profile_mode") === "edit" ? "/dashboard/profile" : "/new-user"}?error=profile`);
+  await supabase.auth.updateUser({ data: { first_name: firstName, last_name: lastName, driver_name: driverName, driver_number: profile.driver_number, team_name: profile.team_name } });
+  await supabase.from("people").update({ display_name: driverName }).eq("linked_user_id", user.id);
+  revalidatePath("/dashboard");
+  if (formData.get("profile_mode") === "edit") redirect("/dashboard/profile?saved=profile");
+  redirect("/dashboard");
+}
+
+export async function updatePassword(formData: FormData) {
+  const supabase = await createClient();
+  const password = String(formData.get("password") ?? "");
+  const confirmation = String(formData.get("password_confirmation") ?? "");
+  if (password.length < 8 || password !== confirmation) redirect("/dashboard/profile?error=password");
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) redirect("/dashboard/profile?error=password_update");
+  redirect("/dashboard/profile?saved=password");
+}
+
 export async function createBallPitWorkspace() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

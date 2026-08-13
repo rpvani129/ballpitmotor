@@ -7,6 +7,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  const { data: profile } = await supabase.from("user_profiles").select("onboarding_complete").eq("user_id", user.id).maybeSingle();
+  if (!profile?.onboarding_complete) redirect("/new-user");
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -22,6 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </nav>
         <div className="topbar-actions">
           <a href="https://ballpitmotor.com">Ball Pit Motorsports ↗</a>
+          <Link href="/dashboard/profile">Profile</Link>
           <form action={signOut}><button className="text-button">Log out</button></form>
         </div>
       </header>

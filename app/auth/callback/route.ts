@@ -10,7 +10,9 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      return NextResponse.redirect(new URL("/dashboard", requestUrl.origin));
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profile } = user ? await supabase.from("user_profiles").select("onboarding_complete").eq("user_id", user.id).maybeSingle() : { data: null };
+      return NextResponse.redirect(new URL(profile?.onboarding_complete ? "/dashboard" : "/new-user", requestUrl.origin));
     }
   }
 
