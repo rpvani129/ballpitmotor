@@ -1,5 +1,5 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { DEFAULT_CHECKLIST_ITEMS, DEFAULT_TRACKS } from "@/lib/workspace-defaults";
+import { DEFAULT_CHECKLIST_ITEMS, DEFAULT_EVENT_TYPES, DEFAULT_TEAMS, DEFAULT_TRACKS } from "@/lib/workspace-defaults";
 
 export async function provisionWorkspace(supabase: SupabaseClient, user: User) {
   const { data: existing } = await supabase.from("memberships").select("workspace_id").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
@@ -17,6 +17,8 @@ export async function provisionWorkspace(supabase: SupabaseClient, user: User) {
   await supabase.from("event_note_categories").insert(
     ["General", "Plan", "Setup", "Driver Feedback", "Incident", "Follow-up"].map((name) => ({ workspace_id: workspaceId, name })),
   );
+  await supabase.from("event_types").insert(DEFAULT_EVENT_TYPES.map((name) => ({ workspace_id: workspaceId, name })));
+  await supabase.from("teams").insert(DEFAULT_TEAMS.map((name) => ({ workspace_id: workspaceId, name })));
 
   for (const { configurations, ...track } of DEFAULT_TRACKS) {
     const { data: createdTrack, error: trackError } = await supabase.from("tracks").insert({ workspace_id: workspaceId, ...track }).select("id").single();

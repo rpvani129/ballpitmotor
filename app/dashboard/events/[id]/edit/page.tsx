@@ -7,12 +7,14 @@ export default async function EditEventPage({ params, searchParams }: { params: 
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createClient();
-  const [{ data: event }, { data: vehicles }, { data: tracks }, { data: tires }, { data: pads }] = await Promise.all([
+  const [{ data: event }, { data: vehicles }, { data: tracks }, { data: tires }, { data: pads }, { data: eventTypes }, { data: teams }] = await Promise.all([
     supabase.from("events").select("*").eq("id", id).single(),
     supabase.from("vehicles").select("id,name,business_id,status").order("name"),
     supabase.from("tracks").select("id,name,short_name,is_active,track_configurations(id,name,is_active)").order("name"),
     supabase.from("tire_sets").select("id,business_id,vehicle_id,status,manufacturer,model,size,compound").order("business_id"),
     supabase.from("pad_sets").select("id,business_id,vehicle_id,axle,status,manufacturer,model,compound").order("business_id"),
+    supabase.from("event_types").select("id,name").order("name"),
+    supabase.from("teams").select("id,name").order("name"),
   ]);
   if (!event) notFound();
   const tireLabel = (set: { business_id: string; manufacturer: string; model: string; size: string | null; compound: string | null; status: string }) =>
@@ -34,8 +36,8 @@ export default async function EditEventPage({ params, searchParams }: { params: 
             <label>Date<input name="event_date" type="date" defaultValue={event.event_date} required /></label>
             <label className="span-2">Event name<input name="event_name" defaultValue={event.event_name} required /></label>
             <label>Organization<input name="organization_name" defaultValue={event.organization_name ?? ""} /></label>
-            <label>Event type<select name="event_type" defaultValue={event.event_type ?? "Competition / Organized Event"}><option>Competition / Organized Event</option><option>Member / Open Track Day</option><option>Race School</option><option>Rental</option></select></label>
-            <label>Team<input name="team_name" defaultValue={event.team_name ?? ""} /></label>
+            <label>Event type<select name="event_type_id" defaultValue={event.event_type_id ?? ""}><option value="">Not assigned</option>{eventTypes?.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
+            <label>Team<select name="team_id" defaultValue={event.team_id ?? ""}><option value="">Not assigned</option>{teams?.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
             <label>Driver<input name="driver_name" defaultValue={event.driver_name ?? ""} /></label>
             <label>Status<select name="status" defaultValue={event.status}><option value="planned">Planned</option><option value="active">Active</option><option value="complete">Complete</option><option value="cancelled">Cancelled</option><option value="needs_review">Needs review</option></select></label>
           </div>

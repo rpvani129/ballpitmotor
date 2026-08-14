@@ -13,13 +13,6 @@ export const DEFAULT_TRACKS = [
     ],
   },
   {
-    name: "Eagles Canyon Raceway - Short Track", short_name: null, address: "7629 North FM 51", city: "Decatur", region: "TX", postal_code: "76234", country: "USA", latitude: null, longitude: null, timezone: "America/Chicago", website_url: null, notes: "Decatur Municipal Airport (KLUD — METAR/AWOS)", is_active: true,
-    configurations: [
-      { name: "1.65 Mile Circuit CCW", direction: null, distance_miles: null, is_active: true },
-      { name: "1.65 Mile Circuit CW", direction: "CW", distance_miles: 1.65, is_active: true },
-    ],
-  },
-  {
     name: "G2 MOTORSPORT PARK", short_name: null, address: "1001 County Road 526", city: "Anna", region: "TX", postal_code: "75409", country: "USA", latitude: null, longitude: null, timezone: "America/Chicago", website_url: null, notes: "McKinney National Airport (KTKI — METAR/ASOS)", is_active: true,
     configurations: [{ name: "3.1 Mile Circuit CCW", direction: "CCW", distance_miles: 3.1, is_active: true }],
   },
@@ -48,3 +41,16 @@ export const DEFAULT_CHECKLIST_ITEMS = [
   "Helmet, HANS, belts and safety gear packed",
   "Tech sheet completed",
 ] as const;
+
+export const DEFAULT_EVENT_TYPES = [
+  "Class",
+  "Competition / Organized Event",
+  "HPDE",
+  "Instructor",
+  "Member / Open Track Day",
+  "Practice",
+  "Race School",
+  "Rental / Open Track Day",
+] as const;
+
+export const DEFAULT_TEAMS = ["Ball Pit Motor"] as const;

@@ -8,5 +8,5 @@ export default async function EditVehiclePage({ params, searchParams }: { params
   const { id } = await params; const query = await searchParams; const supabase = await createClient();
   const { data: vehicle } = await supabase.from("vehicles").select("*").eq("id", id).single();
   if (!vehicle) notFound();
-  return <main className="dashboard-main"><Link className="back-link" href={`/dashboard/vehicles/${id}`}>← Back to vehicle</Link><section className="page-title compact-title"><p className="eyebrow">{vehicle.business_id}</p><h1>Edit vehicle</h1><p>Update the garage file for {vehicle.name}.</p></section>{query.error && <p className="alert">The vehicle could not be saved.</p>}<VehicleForm vehicle={vehicle} action={updateVehicle} /></main>;
+  return <main className="dashboard-main"><Link className="back-link" href="/dashboard/vehicles">← Vehicles</Link><section className="page-title compact-title"><p className="eyebrow">{vehicle.business_id}</p><h1>Edit vehicle</h1><p>Update the garage file for {vehicle.name} and return to the vehicle table.</p></section>{query.error && <p className="alert">The vehicle could not be saved.</p>}<VehicleForm vehicle={vehicle} action={updateVehicle} /></main>;
 }

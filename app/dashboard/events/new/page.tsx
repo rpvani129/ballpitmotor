@@ -4,12 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 export default async function NewEventPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const query = await searchParams;
   const supabase = await createClient();
-  const [{ data: vehicles }, { data: tracks }, { data: tires }, { data: pads }] = await Promise.all([
+  const [{ data: vehicles }, { data: tracks }, { data: tires }, { data: pads }, { data: eventTypes }, { data: teams }] = await Promise.all([
     supabase.from("vehicles").select("id,name,business_id").eq("status", "active").order("name"),
     supabase.from("tracks").select("id,name,short_name,track_configurations(id,name,is_active)").eq("is_active", true).order("name"),
     supabase.from("tire_sets").select("id,business_id,vehicle_id").eq("status", "active").order("business_id"),
     supabase.from("pad_sets").select("id,business_id,vehicle_id,axle").eq("status", "active").order("business_id"),
+    supabase.from("event_types").select("id,name").order("name"),
+    supabase.from("teams").select("id,name").order("name"),
   ]);
+  const defaultTeamId = teams?.find((team) => team.name === "Ball Pit Motor")?.id ?? "";
   return (
     <main className="dashboard-main">
       <section className="page-title"><p className="eyebrow">EVENT-FIRST WORKFLOW</p><h1>Create event</h1><p>Event Index owns the day. Sessions inherit its car, driver, track, organization, weather and consumables.</p></section>
@@ -22,8 +25,8 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
             <label>Date<input name="event_date" type="date" required /></label>
             <label className="span-2">Event name<input name="event_name" placeholder="SCCA Time Trials" required /></label>
             <label>Organization<input name="organization_name" placeholder="SCCA" /></label>
-            <label>Event type<select name="event_type"><option>Competition / Organized Event</option><option>Member / Open Track Day</option><option>Race School</option><option>Rental</option></select></label>
-            <label>Team<input name="team_name" defaultValue="Ball Pit Motor" /></label>
+            <label>Event type<select name="event_type_id"><option value="">Not assigned</option>{eventTypes?.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</select></label>
+            <label>Team<select name="team_id" defaultValue={defaultTeamId}><option value="">Not assigned</option>{teams?.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
             <label>Driver<input name="driver_name" defaultValue="Roshan Vani" /></label>
           </div>
         </section>

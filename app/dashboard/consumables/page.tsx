@@ -7,8 +7,7 @@ export default async function ConsumablesPage({ searchParams }: { searchParams: 
   const query = await searchParams;
   const tab = query.tab === "pads" ? "pads" : "tires";
   const supabase = await createClient();
-  const [{ data: vehicles }, { data: tires }, { data: pads }, { data: rawEvents }] = await Promise.all([
-    supabase.from("vehicles").select("id,name").eq("status", "active").order("name"),
+  const [{ data: tires }, { data: pads }, { data: rawEvents }] = await Promise.all([
     supabase.from("tire_sets").select("*,vehicles(name)").order("business_id"),
     supabase.from("pad_sets").select("*,vehicles(name)").order("business_id"),
     supabase.from("events").select("tire_set_id,front_pad_set_id,rear_pad_set_id,sessions(count)"),
@@ -24,6 +23,6 @@ export default async function ConsumablesPage({ searchParams }: { searchParams: 
   });
   return <main className="dashboard-main"><section className="page-title"><p className="eyebrow">WHAT&apos;S ON THE CAR</p><h1>Tires + Pads</h1><p>Review current sets and session life. Retired equipment stays available as history.</p></section>
     {query.error && <p className="alert">That set could not be saved. Check the ID and required fields.</p>}
-    <ConsumablesClient tab={tab} vehicles={vehicles ?? []} tires={withCounts((tires ?? []) as unknown as Asset[], "tire")} pads={withCounts((pads ?? []) as unknown as Asset[], "pad")} />
+    <ConsumablesClient tab={tab} tires={withCounts((tires ?? []) as unknown as Asset[], "tire")} pads={withCounts((pads ?? []) as unknown as Asset[], "pad")} />
   </main>;
 }
