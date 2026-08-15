@@ -4,7 +4,7 @@ import { useState } from "react";
 
 type Profile = { first_name?: string; last_name?: string; driver_name?: string; driver_number?: string | null; team_name?: string | null };
 
-export default function ProfileForm({ action, profile, includeCredentials = false, mode = "new" }: { action: (formData: FormData) => void | Promise<void>; profile?: Profile; includeCredentials?: boolean; mode?: "new" | "edit" }) {
+export default function ProfileForm({ action, profile, includeCredentials = false, mode = "new", cancelHref }: { action: (formData: FormData) => void | Promise<void>; profile?: Profile; includeCredentials?: boolean; mode?: "new" | "edit"; cancelHref?: string }) {
   const [firstName, setFirstName] = useState(profile?.first_name ?? "");
   const [lastName, setLastName] = useState(profile?.last_name ?? "");
   const startingDefault = [profile?.first_name, profile?.last_name].filter(Boolean).join("-");
@@ -21,6 +21,6 @@ export default function ProfileForm({ action, profile, includeCredentials = fals
     <label className="span-2">Driver name<input name="driver_name" value={driverName} onChange={(event) => setDriverName(event.target.value)} required /><small>This creates your personalized public link. It defaults to First-Name-Last-Name.</small></label>
     <label>Driver number <span>Optional</span><input name="driver_number" defaultValue={profile?.driver_number ?? ""} maxLength={20} /></label>
     <label>Team name <span>Optional</span><input name="team_name" defaultValue={profile?.team_name ?? ""} maxLength={120} /></label>
-    <button className="button primary span-2">{mode === "edit" ? "Save profile" : includeCredentials ? "Create account" : "Complete profile"}</button>
+    {cancelHref ? <div className="profile-form-actions span-2"><a className="button ghost" href={cancelHref}>Cancel</a><button className="button primary">Save profile</button></div> : <button className="button primary span-2">{mode === "edit" ? "Save profile" : includeCredentials ? "Create account" : "Complete profile"}</button>}
   </form>;
 }

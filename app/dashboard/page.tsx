@@ -18,7 +18,8 @@ type EventRow = {
   sessions: { best_lap_ms: number | null }[];
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
+  const query = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: membership } = await supabase
@@ -60,6 +61,7 @@ export default async function DashboardPage() {
   return (
     <main className="dashboard-main">
       {(eventSettings?.show_first_time_popup ?? true) && <FirstTimeDialog action={updateFirstTimeSettings} />}
+      {query.deleted === "event" && <p className="success-message">Event deleted.</p>}
       <section className="page-hero compact">
         <div>
           <p className="eyebrow">BALL PIT WORKSPACE</p>

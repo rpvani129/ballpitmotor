@@ -22,7 +22,7 @@ export default async function ConsumablesPage({ searchParams }: { searchParams: 
     return { ...asset, loggedSessions, totalSessions: loggedSessions + (asset.starting_sessions ?? 0) };
   });
   return <main className="dashboard-main"><section className="page-title"><p className="eyebrow">WHAT&apos;S ON THE CAR</p><h1>Tires + Pads</h1><p>Review current sets and session life. Retired equipment stays available as history.</p></section>
-    {query.error && <p className="alert">That set could not be saved. Check the ID and required fields.</p>}
+    {query.error && <p className="alert">{query.error === "asset_in_use" ? "That set is assigned to an event and cannot be deleted." : "That set could not be saved or deleted."}</p>}{query.deleted && <p className="success-message">Set deleted.</p>}
     <ConsumablesClient tab={tab} tires={withCounts((tires ?? []) as unknown as Asset[], "tire")} pads={withCounts((pads ?? []) as unknown as Asset[], "pad")} />
   </main>;
 }

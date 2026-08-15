@@ -37,7 +37,7 @@ export async function saveUserProfile(formData: FormData) {
   if (!firstName || !lastName || !driverName) redirect("/new-user?error=required");
   const profile = { user_id: user.id, first_name: firstName, last_name: lastName, driver_name: driverName, driver_number: String(formData.get("driver_number") ?? "").trim().slice(0, 20) || null, team_name: String(formData.get("team_name") ?? "").trim().slice(0, 120) || null, onboarding_complete: true };
   const { error } = await supabase.from("user_profiles").upsert(profile, { onConflict: "user_id" });
-  if (error) redirect(`${formData.get("profile_mode") === "edit" ? "/dashboard/profile" : "/new-user"}?error=profile`);
+  if (error) redirect(`${formData.get("profile_mode") === "edit" ? "/dashboard/profile/edit" : "/new-user"}?error=profile`);
   await supabase.auth.updateUser({ data: { first_name: firstName, last_name: lastName, driver_name: driverName, driver_number: profile.driver_number, team_name: profile.team_name } });
   await supabase.from("people").update({ display_name: driverName }).eq("linked_user_id", user.id);
   revalidatePath("/dashboard");
@@ -53,6 +53,18 @@ export async function updatePassword(formData: FormData) {
   const { error } = await supabase.auth.updateUser({ password });
   if (error) redirect("/dashboard/profile?error=password_update");
   redirect("/dashboard/profile?saved=password");
+}
+
+export async function deleteVehicle(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  if (!membership || !vehicleId) redirect("/dashboard/vehicles");
+  const { count } = await supabase.from("events").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId);
+  if (count) redirect("/dashboard/vehicles?error=vehicle_in_use");
+  const { data, error } = await supabase.from("vehicles").delete().eq("workspace_id", membership.workspace_id).eq("id", vehicleId).select("id").maybeSingle();
+  if (error || !data) redirect("/dashboard/vehicles?error=delete");
+  revalidatePath("/dashboard/vehicles");
+  redirect("/dashboard/vehicles?deleted=vehicle");
 }
 
 export async function createBallPitWorkspace() {
@@ -167,6 +179,17 @@ export async function updateMaintenanceRecord(formData: FormData) {
   redirect(`/dashboard/vehicles/${vehicleId}`);
 }
 
+export async function deleteMaintenanceRecord(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const id = String(formData.get("maintenance_record_id") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  if (!membership || !id || !vehicleId) redirect("/dashboard/vehicles");
+  const { data, error } = await supabase.from("maintenance_records").delete().eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId).eq("id", id).select("id").maybeSingle();
+  if (error || !data) redirect(`/dashboard/vehicles/${vehicleId}?error=delete-service`);
+  revalidatePath(`/dashboard/vehicles/${vehicleId}`);
+  redirect(`/dashboard/vehicles/${vehicleId}?deleted=service`);
+}
+
 export async function addMaintenanceRecordItem(formData: FormData) {
   const { supabase, membership } = await authContext();
   const maintenanceRecordId = String(formData.get("maintenance_record_id") ?? "");
@@ -217,6 +240,18 @@ export async function updateMaintenanceRecordItem(formData: FormData) {
   if (error) redirect(`/dashboard/vehicles/${vehicleId}/service/${maintenanceRecordId}/items/${id}/edit?error=save`);
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
   redirect(`/dashboard/vehicles/${vehicleId}`);
+}
+
+export async function deleteMaintenanceRecordItem(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const id = String(formData.get("item_id") ?? "");
+  const maintenanceRecordId = String(formData.get("maintenance_record_id") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  if (!membership || !id || !maintenanceRecordId || !vehicleId) redirect("/dashboard/vehicles");
+  const { data, error } = await supabase.from("maintenance_record_items").delete().eq("workspace_id", membership.workspace_id).eq("maintenance_record_id", maintenanceRecordId).eq("id", id).select("id").maybeSingle();
+  if (error || !data) redirect(`/dashboard/vehicles/${vehicleId}?error=delete-service-item`);
+  revalidatePath(`/dashboard/vehicles/${vehicleId}`);
+  redirect(`/dashboard/vehicles/${vehicleId}?deleted=service-item`);
 }
 
 export async function createTireSet(formData: FormData) {
@@ -303,6 +338,22 @@ export async function updatePadSet(formData: FormData) {
   redirect("/dashboard/consumables?tab=pads");
 }
 
+export async function deleteConsumable(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const id = String(formData.get("asset_id") ?? "");
+  const kind = String(formData.get("kind") ?? "");
+  if (!membership || !id || (kind !== "tires" && kind !== "pads")) redirect("/dashboard/consumables");
+  const references = kind === "tires"
+    ? await supabase.from("events").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id).eq("tire_set_id", id)
+    : await supabase.from("events").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id).or(`front_pad_set_id.eq.${id},rear_pad_set_id.eq.${id}`);
+  if (references.count) redirect(`/dashboard/consumables?tab=${kind}&error=asset_in_use`);
+  const table = kind === "tires" ? "tire_sets" : "pad_sets";
+  const { data, error } = await supabase.from(table).delete().eq("workspace_id", membership.workspace_id).eq("id", id).select("id").maybeSingle();
+  if (error || !data) redirect(`/dashboard/consumables?tab=${kind}&error=delete`);
+  revalidatePath("/dashboard/consumables");
+  redirect(`/dashboard/consumables?tab=${kind}&deleted=asset`);
+}
+
 export async function createTrack(formData: FormData) {
   const { supabase, membership } = await authContext();
   if (!membership) redirect("/dashboard");
@@ -339,6 +390,18 @@ export async function updateTrack(formData: FormData) {
   redirect("/dashboard/tracks");
 }
 
+export async function deleteTrack(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const trackId = String(formData.get("track_id") ?? "");
+  if (!membership || !trackId) redirect("/dashboard/tracks");
+  const { count } = await supabase.from("events").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id).eq("track_id", trackId);
+  if (count) redirect("/dashboard/tracks?error=track_in_use");
+  const { data, error } = await supabase.from("tracks").delete().eq("workspace_id", membership.workspace_id).eq("id", trackId).select("id").maybeSingle();
+  if (error || !data) redirect("/dashboard/tracks?error=delete");
+  revalidatePath("/dashboard/tracks");
+  redirect("/dashboard/tracks?deleted=track");
+}
+
 export async function addTrackConfiguration(formData: FormData) {
   const { supabase, membership } = await authContext();
   if (!membership) redirect("/dashboard");
@@ -373,6 +436,19 @@ export async function updateTrackConfiguration(formData: FormData) {
   revalidatePath("/dashboard/tracks");
   revalidatePath(`/dashboard/tracks/${trackId}`);
   redirect(`/dashboard/tracks/${trackId}`);
+}
+
+export async function deleteTrackConfiguration(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const trackId = String(formData.get("track_id") ?? "");
+  const configurationId = String(formData.get("configuration_id") ?? "");
+  if (!membership || !trackId || !configurationId) redirect("/dashboard/tracks");
+  const { count } = await supabase.from("events").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id).eq("configuration_id", configurationId);
+  if (count) redirect(`/dashboard/tracks/${trackId}?error=configuration_in_use`);
+  const { data, error } = await supabase.from("track_configurations").delete().eq("workspace_id", membership.workspace_id).eq("track_id", trackId).eq("id", configurationId).select("id").maybeSingle();
+  if (error || !data) redirect(`/dashboard/tracks/${trackId}?error=delete`);
+  revalidatePath(`/dashboard/tracks/${trackId}`);
+  redirect(`/dashboard/tracks/${trackId}?deleted=configuration`);
 }
 
 export async function createEvent(formData: FormData) {
@@ -517,6 +593,22 @@ export async function updateEvent(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/events/${eventId}`);
   redirect(`/dashboard/events/${eventId}`);
+}
+
+export async function deleteEvent(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const eventId = String(formData.get("event_id") ?? "");
+  if (!membership || !eventId) redirect("/dashboard");
+  const [{ data: eventFiles }, { data: checklistFiles }] = await Promise.all([
+    supabase.from("event_attachments").select("storage_path").eq("workspace_id", membership.workspace_id).eq("event_id", eventId),
+    supabase.from("checklist_item_attachments").select("storage_path").eq("workspace_id", membership.workspace_id).eq("event_id", eventId),
+  ]);
+  const { data, error } = await supabase.from("events").delete().eq("workspace_id", membership.workspace_id).eq("id", eventId).select("id").maybeSingle();
+  if (error || !data) redirect(`/dashboard/events/${eventId}?error=delete`);
+  const paths = [...(eventFiles ?? []), ...(checklistFiles ?? [])].map((file) => file.storage_path);
+  if (paths.length) await supabase.storage.from("event-attachments").remove(paths);
+  revalidatePath("/dashboard");
+  redirect("/dashboard?deleted=event");
 }
 
 export async function addEventNote(formData: FormData) {
@@ -708,6 +800,18 @@ export async function updateSession(formData: FormData) {
   if (error) redirect(`/dashboard/events/${eventId}/sessions/${sessionId}/edit?error=session`);
   revalidatePath(`/dashboard/events/${eventId}`);
   redirect(`/dashboard/events/${eventId}?tab=sessions`);
+}
+
+export async function deleteSession(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const eventId = String(formData.get("event_id") ?? "");
+  const sessionId = String(formData.get("session_id") ?? "");
+  if (!membership || !eventId || !sessionId) redirect("/dashboard");
+  const { data, error } = await supabase.from("sessions").delete().eq("workspace_id", membership.workspace_id).eq("event_id", eventId).eq("id", sessionId).select("id").maybeSingle();
+  if (error || !data) redirect(`/dashboard/events/${eventId}?tab=sessions&error=delete-session`);
+  revalidatePath(`/dashboard/events/${eventId}`);
+  revalidatePath("/dashboard");
+  redirect(`/dashboard/events/${eventId}?tab=sessions&deleted=session`);
 }
 
 export async function startChecklist(formData: FormData) {

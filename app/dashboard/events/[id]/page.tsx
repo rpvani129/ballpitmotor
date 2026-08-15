@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { startChecklist } from "@/app/actions";
+import { deleteEvent, startChecklist } from "@/app/actions";
 import { formatLap } from "@/lib/grid";
 import { createClient } from "@/lib/supabase/server";
 import ChecklistEditor from "./ChecklistEditor";
 import AttachmentManager from "./AttachmentManager";
+import DeleteRecordButton from "../../DeleteRecordButton";
 
 type Event = {
   id: string;
@@ -98,10 +99,10 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           <h1>{event.event_name}</h1>
           <p className="event-location">{event.track_name} · {event.configuration_name}</p>
         </div>
-        <div className="event-hero-actions"><Link className="button dark" href={`/dashboard/events/${event.id}/edit`}>Edit event</Link><div className="date-block"><strong>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}</strong><span>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span></div></div>
+        <div className="event-hero-actions"><div className="record-actions"><Link className="button dark" href={`/dashboard/events/${event.id}/edit`}>Edit event</Link><DeleteRecordButton action={deleteEvent} fields={{ event_id: event.id }} confirmMessage={`Delete ${event.business_id} — ${event.event_name}? This permanently removes its sessions, checklist, notes, and attachments.`} /></div><div className="date-block"><strong>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}</strong><span>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span></div></div>
       </section>
 
-      {query.error && <p className="alert">That record could not be saved. Check the fields and try again.</p>}
+      {query.error && <p className="alert">That record could not be saved or deleted. Check the fields and try again.</p>}{query.deleted && <p className="success-message">Session deleted.</p>}
 
       <section className="event-facts">
         <div><span>Vehicle</span><strong>{event.vehicles?.name ?? "—"}</strong></div>

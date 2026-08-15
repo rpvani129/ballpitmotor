@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { deleteConsumable } from "@/app/actions";
+import DeleteRecordButton from "../DeleteRecordButton";
 export type Asset = {
   id: string; business_id: string; vehicle_id: string; manufacturer: string; model: string;
   size?: string | null; compound: string | null; axle?: string; purchased_on: string | null;
@@ -17,7 +19,7 @@ export default function ConsumablesClient({ tab, tires, pads }: { tab: "tires" |
     <div><strong>{asset.manufacturer} {asset.model}</strong><span>{tab === "tires" ? asset.size : `${asset.axle} axle`}{asset.compound ? ` · ${asset.compound}` : ""}</span></div>
     <div><b className="consumable-code">{asset.business_id}</b><span>{asset.vehicles?.name ?? "Unassigned"}</span></div>
     <div className="session-count"><strong>{asset.totalSessions}</strong><span>sessions</span>{asset.starting_sessions ? <small>{asset.loggedSessions} calculated + {asset.starting_sessions} previous</small> : <small>{asset.loggedSessions} calculated</small>}</div>
-    <Link className="button ghost compact-button" href={`/dashboard/consumables/${tab}/${asset.id}/edit`}>Edit</Link>
+    <div className="record-actions"><Link className="button ghost compact-button" href={`/dashboard/consumables/${tab}/${asset.id}/edit`}>Edit</Link><DeleteRecordButton action={deleteConsumable} fields={{ asset_id: asset.id, kind: tab }} confirmMessage={`Delete ${asset.business_id}? Sets assigned to events cannot be deleted.`} /></div>
   </article>);
   const padColumns = (items: Asset[]) => <div className="pad-axle-grid">
     {(["front", "rear"] as const).map(axle => {
