@@ -267,6 +267,7 @@ export async function createTireSet(formData: FormData) {
     model: String(formData.get("model") ?? "").trim(),
     size: text("size"), compound: text("compound"), purchased_on: text("purchased_on"),
     starting_sessions: text("starting_sessions") ? Number(text("starting_sessions")) : null,
+    is_current: formData.get("is_current") === "on",
     notes: text("notes"),
   });
   if (error) redirect("/dashboard/consumables/tires/new?error=save");
@@ -287,6 +288,7 @@ export async function createPadSet(formData: FormData) {
     model: String(formData.get("model") ?? "").trim(),
     compound: text("compound"), purchased_on: text("purchased_on"),
     starting_sessions: text("starting_sessions") ? Number(text("starting_sessions")) : null,
+    is_current: formData.get("is_current") === "on",
     notes: text("notes"),
   });
   if (error) redirect("/dashboard/consumables/pads/new?error=save");
@@ -309,6 +311,7 @@ export async function updateTireSet(formData: FormData) {
     purchased_on: text("purchased_on"),
     starting_sessions: text("starting_sessions") ? Number(text("starting_sessions")) : null,
     status: String(formData.get("status") ?? "active"),
+    is_current: formData.get("is_current") === "on" && String(formData.get("status") ?? "active") === "active",
     notes: text("notes"),
   }).eq("workspace_id", membership.workspace_id).eq("id", id);
   if (error) redirect(`/dashboard/consumables/tires/${id}/edit?error=save`);
@@ -331,6 +334,7 @@ export async function updatePadSet(formData: FormData) {
     purchased_on: text("purchased_on"),
     starting_sessions: text("starting_sessions") ? Number(text("starting_sessions")) : null,
     status: String(formData.get("status") ?? "active"),
+    is_current: formData.get("is_current") === "on" && String(formData.get("status") ?? "active") === "active",
     notes: text("notes"),
   }).eq("workspace_id", membership.workspace_id).eq("id", id);
   if (error) redirect(`/dashboard/consumables/pads/${id}/edit?error=save`);
@@ -486,9 +490,10 @@ export async function createEvent(formData: FormData) {
     (rearPadSetId && (!rearPadSet || rearPadSet.vehicle_id !== vehicleId || rearPadSet.axle !== "rear")) ||
     (eventTypeId && !eventType) ||
     (teamId && !team);
-  if (!track || !configuration || !vehicle || !date || !eventName || invalidConsumables) {
+  if (!date || !eventName || !vehicleId || !trackId || !configurationId) {
     redirect("/dashboard/events/new?error=required");
   }
+  if (!track || !configuration || !vehicle || invalidConsumables) redirect("/dashboard/events/new?error=selection");
 
   const weather = track.latitude != null && track.longitude != null ? await getEventWeather(date, track.latitude, track.longitude) : null;
   const businessIdPrefix = eventBusinessId(vehicle.name, date).slice(0, -2);

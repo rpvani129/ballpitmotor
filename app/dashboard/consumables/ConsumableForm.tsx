@@ -16,6 +16,7 @@ export default function ConsumableForm({ kind, vehicles, asset }: { kind: "tires
         <label>Set ID<input name="business_id" defaultValue={asset?.business_id ?? ""} placeholder={isTire ? "GB-TIRE-004" : "GB-FPAD-004"} required /></label>
         {!isTire && <label>Axle<select name="axle" defaultValue={asset?.axle ?? "front"}><option value="front">Front</option><option value="rear">Rear</option></select></label>}
         {asset && <label>Status<select name="status" defaultValue={asset.status}><option value="active">Active</option><option value="retired">Retired</option><option value="sold">Sold</option></select></label>}
+        <label className="setting-toggle span-2"><input name="is_current" type="checkbox" defaultChecked={asset?.is_current ?? false} /> Currently installed on vehicle<small>Choosing this removes the current flag from the other {isTire ? "tire set" : "pad set on this axle"}.</small></label>
       </div>
     </section>
     <section className="form-section">
