@@ -53,7 +53,7 @@ export default function ReportsClient({ events, tires, pads, reviews, resolveAct
     return [...groups.values()].sort((a, b) => a.lap - b.lap);
   }, [filtered]);
 
-  const progression = useMemo(() => filtered.map((event) => ({ event, lap: eventFastest(event) })).filter((row): row is { event: Event; lap: number } => row.lap != null), [filtered]);
+  const progression = useMemo(() => track && configuration ? filtered.map((event) => ({ event, lap: eventFastest(event) })).filter((row): row is { event: Event; lap: number } => row.lap != null) : [], [filtered, track, configuration]);
   const progressionMin = progression.length ? Math.min(...progression.map((row) => row.lap)) : 0;
   const progressionMax = progression.length ? Math.max(...progression.map((row) => row.lap)) : 0;
 
@@ -68,12 +68,13 @@ export default function ReportsClient({ events, tires, pads, reviews, resolveAct
     });
     return [...map.values()].sort((a, b) => b.sessions - a.sessions);
   }, [filtered]);
+  const rentalHistory = useMemo(() => filtered.filter((event) => /rental/i.test(`${event.event_type ?? ""} ${event.event_name} ${event.team_name ?? ""}`)).sort((a, b) => b.event_date.localeCompare(a.event_date)), [filtered]);
 
   const consumableUsage = useMemo(() => {
     const sessionCount = (id: string, field: "tire_set_id" | "front_pad_set_id" | "rear_pad_set_id") => events.filter((event) => event[field] === id).reduce((sum, event) => sum + event.sessions.length, 0);
     return {
-      tires: tires.map((item) => ({ ...item, calculated: sessionCount(item.id, "tire_set_id"), total: item.starting_sessions == null ? null : item.starting_sessions + sessionCount(item.id, "tire_set_id") })).sort((a, b) => b.calculated - a.calculated),
-      pads: pads.map((item) => ({ ...item, calculated: sessionCount(item.id, item.axle === "front" ? "front_pad_set_id" : "rear_pad_set_id"), total: item.starting_sessions == null ? null : item.starting_sessions + sessionCount(item.id, item.axle === "front" ? "front_pad_set_id" : "rear_pad_set_id") })).sort((a, b) => b.calculated - a.calculated),
+      tires: tires.map((item) => ({ ...item, calculated: sessionCount(item.id, "tire_set_id"), total: item.starting_sessions == null ? null : item.starting_sessions + sessionCount(item.id, "tire_set_id") })).sort((a, b) => Number(b.status === "active") - Number(a.status === "active") || b.calculated - a.calculated),
+      pads: pads.map((item) => ({ ...item, calculated: sessionCount(item.id, item.axle === "front" ? "front_pad_set_id" : "rear_pad_set_id"), total: item.starting_sessions == null ? null : item.starting_sessions + sessionCount(item.id, item.axle === "front" ? "front_pad_set_id" : "rear_pad_set_id") })).sort((a, b) => Number(b.status === "active") - Number(a.status === "active") || b.calculated - a.calculated),
     };
   }, [events, tires, pads]);
 
@@ -126,7 +127,7 @@ export default function ReportsClient({ events, tires, pads, reviews, resolveAct
 
     {tab === "progression" && <ReportSection eyebrow="TREND" title="Lap-time progression" note="Comparable records are controlled by the filters above. Lower bars are faster.">{progression.length ? <div className="progression-chart">{progression.map(({ event, lap }) => { const range = Math.max(1, progressionMax - progressionMin); const width = 35 + ((lap - progressionMin) / range) * 65; return <Link href={`/dashboard/events/${event.id}`} className="progression-row" key={event.id}><time>{displayDate(event.event_date)}</time><div className="progression-bar-track"><span style={{ width: `${width}%` }} /></div><strong>{formatLap(lap)}</strong><small>{event.vehicles?.name} · {event.track_name} · {event.configuration_name}</small></Link>; })}</div> : <Empty text="Choose a track and configuration with recorded lap times." />}</ReportSection>}
 
-    {tab === "utilization" && <ReportSection eyebrow="HISTORY" title="Vehicle utilization" note="Rental sessions are identified from the event type, event name, or assigned team."><div className="report-table utilization-table"><div className="report-table-head"><span>Vehicle</span><span>Events</span><span>Sessions</span><span>Timed</span><span>Rental</span><span>Last event</span></div>{utilization.map((row) => <div className="report-table-row" key={row.vehicle}><strong>{row.vehicle}</strong><b>{row.events}</b><b>{row.sessions}</b><span>{row.timed}</span><span>{row.rentals}</span><time>{row.last ? displayDate(row.last) : "—"}</time></div>)}</div></ReportSection>}
+    {tab === "utilization" && <ReportSection eyebrow="HISTORY" title="Vehicle utilization" note="Rental sessions are identified from the event type, event name, or assigned team."><div className="report-table utilization-table"><div className="report-table-head"><span>Vehicle</span><span>Events</span><span>Sessions</span><span>Timed</span><span>Rental</span><span>Last event</span></div>{utilization.map((row) => <div className="report-table-row" key={row.vehicle}><strong>{row.vehicle}</strong><b>{row.events}</b><b>{row.sessions}</b><span>{row.timed}</span><span>{row.rentals}</span><time>{row.last ? displayDate(row.last) : "—"}</time></div>)}</div><h3 className="report-subhead">Rental history</h3>{rentalHistory.length ? <div className="report-table rental-history-table"><div className="report-table-head"><span>Date</span><span>Vehicle</span><span>Driver</span><span>Event</span><span>Sessions</span></div>{rentalHistory.map((event) => <Link href={`/dashboard/events/${event.id}`} className="report-table-row" key={event.id}><time>{displayDate(event.event_date)}</time><strong>{event.vehicles?.name ?? "Unassigned"}</strong><span>{event.driver_name ?? "Unknown driver"}</span><span>{event.event_name}</span><b>{event.sessions.length}</b></Link>)}</div> : <Empty text="No rental events match the selected filters." />}</ReportSection>}
 
     {tab === "consumables" && <ReportSection eyebrow="WEAR" title="Tire and pad life" note="Calculated sessions come from events assigned to each set. Known total includes the entered starting count."><h3>Tires</h3><ConsumableTable rows={consumableUsage.tires.map((item) => ({ id: item.id, code: item.business_id, description: [item.manufacturer, item.model, item.size].filter(Boolean).join(" "), vehicle: item.vehicles?.name ?? "—", status: item.status, calculated: item.calculated, total: item.total }))} /><h3 className="report-subhead">Pads</h3><ConsumableTable rows={consumableUsage.pads.map((item) => ({ id: item.id, code: item.business_id, description: [item.manufacturer, item.model, item.compound].filter(Boolean).join(" "), vehicle: `${item.vehicles?.name ?? "—"} · ${item.axle}`, status: item.status, calculated: item.calculated, total: item.total }))} /></ReportSection>}
 

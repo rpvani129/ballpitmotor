@@ -259,16 +259,20 @@ export async function commitServiceRecordImport(formData: FormData) {
   const importId = String(formData.get("import_id") ?? "");
   const vehicleId = String(formData.get("vehicle_id") ?? "");
   if (!membership || !importId || !vehicleId) redirect("/dashboard/vehicles");
-  let draft: { service_date?: string; category?: string; title?: string; description?: string | null; odometer_miles?: number | null; vendor?: string | null; cost?: number | null; invoice_number?: string | null; items?: { category?: string; title?: string; details?: string | null; quantity?: string | null; line_amount?: number | null; source_item_number?: string | null; status?: string }[] };
+  type DraftRecord = { service_date?: string; category?: string; title?: string; description?: string | null; odometer_miles?: number | null; vendor?: string | null; cost?: number | null; invoice_number?: string | null; items?: { category?: string; title?: string; details?: string | null; quantity?: string | null; line_amount?: number | null; source_item_number?: string | null; status?: string }[] };
+  let draft: { records?: DraftRecord[] };
   try { draft = JSON.parse(String(formData.get("draft") ?? "{}")); } catch { redirect(`/dashboard/vehicles/${vehicleId}/service/imports/${importId}?error=draft`); }
   const { data: imported } = await supabase.from("service_record_imports").select("*").eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId).eq("id", importId).single();
   if (!imported || imported.status !== "review" || imported.committed_record_id) redirect(`/dashboard/vehicles/${vehicleId}/service/imports/${importId}?error=state`);
-  const serviceDate = String(draft.service_date ?? "").trim(); const title = String(draft.title ?? "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(serviceDate) || !title) redirect(`/dashboard/vehicles/${vehicleId}/service/imports/${importId}?error=required`);
-  const items = (Array.isArray(draft.items) ? draft.items : []).slice(0, 100).filter((item) => String(item.title ?? "").trim()).map((item, position) => ({ workspace_id: membership.workspace_id, maintenance_record_id: "", position, category: String(item.category ?? "Maintenance").slice(0, 80), title: String(item.title ?? "").trim().slice(0, 200), details: String(item.details ?? "").trim().slice(0, 10000) || null, quantity: String(item.quantity ?? "").trim().slice(0, 80) || null, line_amount: Number.isFinite(Number(item.line_amount)) ? Number(item.line_amount) : null, source_item_number: String(item.source_item_number ?? "").trim().slice(0, 80) || null, status: String(item.status ?? "Complete").slice(0, 80) }));
   const finite = (value: unknown) => value !== null && value !== "" && Number.isFinite(Number(value)) ? Number(value) : null;
-  const recordPayload = { service_date: serviceDate, category: String(draft.category ?? "Maintenance").slice(0, 80), title: title.slice(0, 200), description: String(draft.description ?? "").trim().slice(0, 10000) || null, odometer_miles: finite(draft.odometer_miles), vendor: String(draft.vendor ?? "").trim().slice(0, 200) || null, cost: finite(draft.cost), invoice_number: String(draft.invoice_number ?? "").trim().slice(0, 100) || null };
-  const { error: commitError } = await supabase.rpc("commit_service_record_import", { p_import_id: importId, p_vehicle_id: vehicleId, p_record: recordPayload, p_items: items });
+  const records = (Array.isArray(draft.records) ? draft.records : []).slice(0, 20).map((record) => {
+    const serviceDate = String(record.service_date ?? "").trim(); const title = String(record.title ?? "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(serviceDate) || !title) return null;
+    const items = (Array.isArray(record.items) ? record.items : []).slice(0, 100).filter((item) => String(item.title ?? "").trim()).map((item, position) => ({ position, category: String(item.category ?? "Maintenance").slice(0, 80), title: String(item.title ?? "").trim().slice(0, 200), details: String(item.details ?? "").trim().slice(0, 10000) || null, quantity: String(item.quantity ?? "").trim().slice(0, 80) || null, line_amount: finite(item.line_amount), source_item_number: String(item.source_item_number ?? "").trim().slice(0, 80) || null, status: String(item.status ?? "Complete").slice(0, 80) }));
+    return { service_date: serviceDate, category: String(record.category ?? "Maintenance").slice(0, 80), title: title.slice(0, 200), description: String(record.description ?? "").trim().slice(0, 10000) || null, odometer_miles: finite(record.odometer_miles), vendor: String(record.vendor ?? "").trim().slice(0, 200) || null, cost: finite(record.cost), invoice_number: String(record.invoice_number ?? "").trim().slice(0, 100) || null, items };
+  });
+  if (!records.length || records.some((record) => record === null)) redirect(`/dashboard/vehicles/${vehicleId}/service/imports/${importId}?error=required`);
+  const { error: commitError } = await supabase.rpc("commit_service_record_import_batch", { p_import_id: importId, p_vehicle_id: vehicleId, p_records: records });
   if (commitError) redirect(`/dashboard/vehicles/${vehicleId}/service/imports/${importId}?error=commit`);
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
   redirect(`/dashboard/vehicles/${vehicleId}?imported=service`);

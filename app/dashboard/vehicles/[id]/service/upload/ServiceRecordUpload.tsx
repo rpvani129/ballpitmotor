@@ -28,6 +28,7 @@ export default function ServiceRecordUpload({ workspaceId, vehicleId }: { worksp
     const result = await response.json().catch(() => ({}));
     if (result.id) { router.push(`/dashboard/vehicles/${vehicleId}/service/imports/${result.id}`); return; }
     await supabase.storage.from("service-record-imports").remove([path]);
+    if (result.duplicateId) { router.push(`/dashboard/vehicles/${vehicleId}/service/imports/${result.duplicateId}?duplicate=1`); return; }
     setMessage(result.error || "The document could not be processed."); setBusy(false);
   }
   return <form className="service-upload-panel" action={upload}>

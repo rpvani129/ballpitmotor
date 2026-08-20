@@ -3,22 +3,25 @@ import { notFound } from "next/navigation";
 import { deleteVehicle } from "@/app/actions";
 import { createClient } from "@/lib/supabase/server";
 import DeleteRecordButton from "../../DeleteRecordButton";
+import ServiceImportHistory from "./ServiceImportHistory";
 import ServiceRecords from "./ServiceRecords";
 
 export default async function VehiclePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) {
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createClient();
-  const [{ data: vehicle }, { data: maintenance }, { count: eventCount }] = await Promise.all([
+  const [{ data: vehicle }, { data: maintenance }, { data: serviceImports }, { count: eventCount }] = await Promise.all([
     supabase.from("vehicles").select("*").eq("id", id).single(),
     supabase.from("maintenance_records").select("*, maintenance_record_items(*)").eq("vehicle_id", id).order("service_date", { ascending: false }).order("position", { referencedTable: "maintenance_record_items", ascending: true }),
+    supabase.from("service_record_imports").select("id,file_name,storage_path,status,extraction_error,created_at,service_record_import_results(count)").eq("vehicle_id", id).order("created_at", { ascending: false }).limit(20),
     supabase.from("events").select("id", { count: "exact", head: true }).eq("vehicle_id", id),
   ]);
   if (!vehicle) notFound();
-  const sourcePaths = [...new Set((maintenance ?? []).map((record) => record.source_storage_path).filter((path): path is string => Boolean(path)))];
+  const sourcePaths = [...new Set([...(maintenance ?? []).map((record) => record.source_storage_path), ...(serviceImports ?? []).map((item) => item.storage_path)].filter((path): path is string => Boolean(path)))];
   const { data: signedSources } = sourcePaths.length ? await supabase.storage.from("service-record-imports").createSignedUrls(sourcePaths, 3600) : { data: [] };
   const sourceUrls = new Map((signedSources ?? []).map((source) => [source.path, source.signedUrl]));
   const maintenanceWithSources = (maintenance ?? []).map((record) => ({ ...record, source_signed_url: record.source_storage_path ? sourceUrls.get(record.source_storage_path) ?? null : null }));
+  const importsWithSources = (serviceImports ?? []).map((item) => ({ ...item, source_signed_url: sourceUrls.get(item.storage_path) ?? null, result_count: item.service_record_import_results?.[0]?.count ?? 0 }));
   const maintenanceCount = maintenance?.length ?? 0;
   const maintenanceItemCount = (maintenance ?? []).reduce((sum, record) => sum + (record.maintenance_record_items?.length ?? 0), 0);
   return <main className="dashboard-main">
@@ -27,6 +30,7 @@ export default async function VehiclePage({ params, searchParams }: { params: Pr
     {query.error && <p className="alert">That update could not be saved. Check the fields and try again.</p>}{query.deleted && <p className="success-message">Record deleted.</p>}
     <section className="vehicle-profile-summary"><div><span>Status</span><strong>{vehicle.status}</strong></div><div><span>Mileage</span><strong>{vehicle.current_odometer_miles != null ? vehicle.current_odometer_miles.toLocaleString() : "—"}</strong></div><div><span>Race number</span><strong>{vehicle.race_number ?? "—"}</strong></div><div><span>Class</span><strong>{vehicle.competition_class ?? "—"}</strong></div></section>
     <section className="section-block"><div className="section-heading"><div><p className="eyebrow">MAINTENANCE HISTORY</p><h2>Service records</h2></div><div className="section-heading-actions"><span>{maintenance?.length ?? 0} logged</span><Link className="button outline" href={`/dashboard/vehicles/${id}/service/upload`}>Upload records</Link><Link className="button primary" href={`/dashboard/vehicles/${id}/service/new`}>+ Add service</Link></div></div>
+      <ServiceImportHistory vehicleId={id} imports={importsWithSources as never[]} />
       {maintenanceWithSources.length ? <ServiceRecords vehicleId={id} records={maintenanceWithSources} /> : <div className="empty-state"><strong>No maintenance logged.</strong><p>Add the first service record when work is completed.</p></div>}
     </section>
   </main>;

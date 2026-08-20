@@ -21,13 +21,13 @@ export async function POST(request: Request) {
   if (downloadError || !blob) return NextResponse.json({ error: "The uploaded file could not be opened." }, { status: 400 });
   const bytes = await blob.arrayBuffer();
   const sha256 = createHash("sha256").update(Buffer.from(bytes)).digest("hex");
-  const { data: duplicate } = await supabase.from("service_record_imports").select("id,status,committed_record_id").eq("workspace_id", membership.workspace_id).eq("file_sha256", sha256).neq("storage_path", body.storagePath).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const { data: duplicate } = await supabase.from("service_record_imports").select("id,status,committed_record_id").eq("workspace_id", membership.workspace_id).eq("vehicle_id", body.vehicleId).eq("file_sha256", sha256).in("status", ["processing", "review", "committed"]).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (duplicate) return NextResponse.json({ error: "This exact document has already been uploaded for this vehicle.", duplicateId: duplicate.id, duplicateStatus: duplicate.status }, { status: 409 });
   const { data: imported, error: insertError } = await supabase.from("service_record_imports").insert({ workspace_id: membership.workspace_id, vehicle_id: body.vehicleId, storage_path: body.storagePath, file_name: body.fileName.slice(0, 255), mime_type: body.mimeType, file_size_bytes: body.fileSize, file_sha256: sha256, status: "processing", created_by: user.id }).select("id").single();
   if (insertError || !imported) return NextResponse.json({ error: insertError?.message || "Import could not be created." }, { status: 400 });
   try {
     const vehicleLabel = [vehicle.year, vehicle.make, vehicle.model, `(${vehicle.business_id} — ${vehicle.name})`].filter(Boolean).join(" ");
     const extracted = await extractServiceRecord(bytes, body.mimeType, body.fileName, vehicleLabel);
-    if (duplicate) extracted.warnings.unshift(`Possible duplicate: this exact file was previously uploaded (${duplicate.status}).`);
     const { error } = await supabase.from("service_record_imports").update({ status: "review", extracted_data: extracted, extraction_error: null, updated_at: new Date().toISOString() }).eq("id", imported.id);
     if (error) throw error;
     return NextResponse.json({ id: imported.id });
