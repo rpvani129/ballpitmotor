@@ -680,3 +680,25 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
   .checklist-note { text-align: left; }
   .app-footer { flex-direction: column; gap: .5rem; }
 }
+
+.service-upload-panel { background: var(--white); border-top: 5px solid var(--red); display: grid; gap: 1.5rem; padding: clamp(1.5rem, 4vw, 3.5rem); }
+.service-dropzone { background: var(--paper); border: 2px dashed #aaa39a; cursor: pointer; display: grid; gap: .35rem; min-height: 190px; place-content: center; text-align: center; }
+.service-dropzone span { font-family: var(--font-display); font-size: clamp(2rem, 5vw, 4rem); line-height: .9; text-transform: uppercase; }
+.service-dropzone strong { color: var(--muted); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+.service-dropzone input { margin: 1rem auto 0; max-width: 100%; }
+.import-explainer { border-left: 5px solid var(--black); padding: .4rem 1.25rem; }
+.import-explainer ol { margin: .65rem 0 0; padding-left: 1.2rem; }
+.import-explainer li { margin-top: .35rem; }
+.import-review-form { display: grid; gap: 1px; }
+.import-warnings { background: #fff2d8; border-left: 5px solid #d98b00; margin-bottom: 1rem; padding: 1rem 1.25rem; }
+.import-warnings p { margin: .35rem 0 0; }
+.import-item-stack { display: grid; gap: 1rem; }
+.import-item-card { background: var(--paper); border: 1px solid var(--line); padding: 1.25rem; }
+.import-item-title { align-items: center; display: flex; justify-content: space-between; margin-bottom: 1rem; }
+.danger-text, .required-mark { color: var(--red); }
+
+@media (max-width: 680px) {
+  .service-upload-panel { padding: 1rem; }
+  .service-dropzone { min-height: 160px; padding: 1rem; }
+  .import-item-card { padding: 1rem; }
+}
