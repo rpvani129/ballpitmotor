@@ -843,6 +843,27 @@ export async function deleteSession(formData: FormData) {
   redirect(`/dashboard/events/${eventId}?tab=sessions&deleted=session`);
 }
 
+export async function commitGarminSessionImport(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const eventId = String(formData.get("event_id") ?? ""); const importId = String(formData.get("import_id") ?? "");
+  if (!membership || !eventId || !importId) redirect("/dashboard");
+  let draft: { sessions?: { session_number?: number; started_at?: string | null; best_lap?: string | null; source_file_name?: string; source_storage_path?: string; notes?: string | null }[] };
+  try { draft = JSON.parse(String(formData.get("draft") ?? "{}")); } catch { redirect(`/dashboard/events/${eventId}/sessions/import/${importId}?error=draft`); }
+  const { data: imported } = await supabase.from("session_imports").select("id,status").eq("workspace_id", membership.workspace_id).eq("event_id", eventId).eq("id", importId).single();
+  if (!imported || imported.status !== "review") redirect(`/dashboard/events/${eventId}/sessions/import/${importId}?error=state`);
+  const sessions = (Array.isArray(draft.sessions) ? draft.sessions : []).slice(0, 50).map((session) => {
+    const sessionNumber = Number(session.session_number); const startedAt = String(session.started_at ?? "").trim(); const lapInput = String(session.best_lap ?? "").trim(); const bestLap = lapInput ? parseLap(lapInput) : null;
+    if (!Number.isInteger(sessionNumber) || sessionNumber < 1 || (startedAt && !/^([01]\d|2[0-3]):[0-5]\d$/.test(startedAt)) || (lapInput && !bestLap)) return null;
+    return { session_number: sessionNumber, started_at: startedAt || null, best_lap_ms: bestLap, source_file_name: String(session.source_file_name ?? "").slice(0, 255) || null, source_storage_path: String(session.source_storage_path ?? "").slice(0, 1000) || null, notes: String(session.notes ?? "").trim().slice(0, 5000) || null };
+  });
+  const numbers = sessions.filter(Boolean).map((session) => session!.session_number);
+  if (!sessions.length || sessions.some((session) => session === null) || new Set(numbers).size !== numbers.length) redirect(`/dashboard/events/${eventId}/sessions/import/${importId}?error=required`);
+  const { error } = await supabase.rpc("commit_session_import", { p_import_id: importId, p_event_id: eventId, p_sessions: sessions });
+  if (error) redirect(`/dashboard/events/${eventId}/sessions/import/${importId}?error=commit`);
+  revalidatePath(`/dashboard/events/${eventId}`); revalidatePath("/dashboard"); revalidatePath("/dashboard/reports");
+  redirect(`/dashboard/events/${eventId}?tab=sessions&imported=garmin`);
+}
+
 export async function startChecklist(formData: FormData) {
   const { supabase, membership } = await authContext();
   if (!membership) redirect("/dashboard");

@@ -713,6 +713,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
 .service-import-row:last-child { border-bottom: 0; }
 .service-import-row > div:first-child { display: grid; gap: .2rem; }
 .service-import-row span, .service-import-row small { color: var(--muted); }
+.garmin-review-list { display: grid; gap: 1rem; }
 
 @media (max-width: 680px) {
   .service-upload-panel { padding: 1rem; }

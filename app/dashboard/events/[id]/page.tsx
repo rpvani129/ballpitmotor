@@ -102,7 +102,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         <div className="event-hero-actions"><div className="record-actions"><Link className="button dark" href={`/dashboard/events/${event.id}/edit`}>Edit event</Link><DeleteRecordButton action={deleteEvent} fields={{ event_id: event.id }} confirmMessage={`Delete ${event.business_id} — ${event.event_name}? This permanently removes its sessions, checklist, notes, and attachments.`} /></div><div className="date-block"><strong>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}</strong><span>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span></div></div>
       </section>
 
-      {query.error && <p className="alert">That record could not be saved or deleted. Check the fields and try again.</p>}{query.deleted && <p className="success-message">Session deleted.</p>}
+      {query.error && <p className="alert">That record could not be saved or deleted. Check the fields and try again.</p>}{query.deleted && <p className="success-message">Session deleted.</p>}{query.imported === "garmin" && <p className="success-message">Garmin sessions imported.</p>}
 
       <section className="event-facts">
         <div><span>Vehicle</span><strong>{event.vehicles?.name ?? "—"}</strong></div>
@@ -121,7 +121,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
 
       {activeTab === "sessions" && <div className="event-content-grid">
         <section className="section-block">
-          <div className="section-heading"><div><p className="eyebrow">LAP TIMES</p><h2>Sessions</h2></div><div className="section-heading-actions"><span>{sessions.length} logged</span><Link className="button primary" href={`/dashboard/events/${event.id}/sessions/new`}>+ Add session</Link></div></div>
+          <div className="section-heading"><div><p className="eyebrow">LAP TIMES</p><h2>Sessions</h2></div><div className="section-heading-actions"><span>{sessions.length} logged</span><Link className="button outline" href={`/dashboard/events/${event.id}/sessions/import`}>Import Garmin</Link><Link className="button primary" href={`/dashboard/events/${event.id}/sessions/new`}>+ Add session</Link></div></div>
           {sessions.length ? <div className="session-table">
             <div className="session-head"><span>Session</span><span>Start</span><span>Best lap</span><span></span></div>
             {sessions.map((session) => <Link href={`/dashboard/events/${event.id}/sessions/${session.id}/edit`} className={session.is_fastest ? "session-row fastest" : "session-row"} key={session.id}>
