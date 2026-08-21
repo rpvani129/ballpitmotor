@@ -11,6 +11,10 @@ export default function FirstTimeDialog({ action }: { action: (formData: FormDat
   return <dialog className="welcome-dialog" ref={dialog}>
     <div className="welcome-dialog-heading"><div><p className="eyebrow">WELCOME TO THE GRID</p><h2>Build your paddock.</h2></div><button className="dialog-close" type="button" aria-label="Close" onClick={() => dialog.current?.close()}>×</button></div>
     <p className="welcome-intro">Start with your equipment, confirm your tracks, then create your first event.</p>
+    <aside className="welcome-import-path">
+      <div><strong>Already have your setup in a spreadsheet?</strong><p>Use Data Management to download the Grid workbook, add your vehicles, tires, pads, tracks, and controlled lists, then upload everything for review.</p></div>
+      <Link className="button outline" href="/dashboard/data-management">Import existing data →</Link>
+    </aside>
     <ol className="welcome-steps">
       <li><span>01</span><div><strong>Add your vehicle</strong><p>Create the garage record that events and service history will use.</p><Link href="/dashboard/vehicles/new">Add vehicle →</Link></div></li>
       <li><span>02</span><div><strong>Add tires and pads</strong><p>Set up the consumables you will assign to events.</p><Link href="/dashboard/consumables">Open tires + pads →</Link></div></li>

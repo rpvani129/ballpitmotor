@@ -42,6 +42,40 @@ export const DEFAULT_CHECKLIST_ITEMS = [
   "Tech sheet completed",
 ] as const;
 
+export const DEFAULT_CHECKLIST_TEMPLATES = [
+  { name: "Safety Checklist", items: DEFAULT_CHECKLIST_ITEMS },
+  { name: "Event Packing List", items: [
+    "Helmet, HANS, gloves, shoes and driver gear packed",
+    "Jack, stands, torque wrench and basic hand tools packed",
+    "Tire gauge, inflator and air equipment packed",
+    "Spare parts, fluids and maintenance supplies packed",
+    "Cameras, data system, chargers and batteries packed",
+    "Registration, tech sheet and required documents packed",
+    "Food, water, cooler and personal supplies packed",
+    "Trailer, tie-downs and recovery equipment checked",
+  ] },
+  { name: "Session Prep Checklist", items: [
+    "Cold tire pressures set for the session",
+    "Wheel torque checked",
+    "Fuel level confirmed",
+    "Brake pads, fluid and visible leaks checked",
+    "Camera and data system recording",
+    "Helmet, HANS, belts and safety gear secured",
+    "Seat, mirrors and controls set",
+    "Track conditions and session plan reviewed",
+  ] },
+  { name: "Post Event Checklist", items: [
+    "Vehicle cooled down and final pressures recorded",
+    "Vehicle inspected for leaks, damage or loose hardware",
+    "Tire and pad condition recorded",
+    "Garmin data, photos and video saved",
+    "Event and driver notes captured",
+    "Maintenance or repair follow-ups created",
+    "Tools, equipment and personal gear packed",
+    "Trailer, tie-downs and vehicle transport checked",
+  ] },
+] as const;
+
 export const DEFAULT_EVENT_TYPES = [
   "Class",
   "Competition / Organized Event",

@@ -78,10 +78,9 @@ export default function ChecklistEditor({ workspaceId, eventId, runId, initialIt
       <button className="button ghost checklist-add" type="button" onClick={addItem}>+ Add checklist item</button>
       <div className="checklist-actions">
         <button className="button dark" name="intent" value="save">Save checklist</button>
-        <button className="button ghost" name="make_template" value="true">Save as standard template</button>
         <button className="button primary" name="intent" value="complete">Save + mark complete</button>
       </div>
-      <p className="form-note checklist-note">Saving as the standard template replaces the checklist used when future events start a checklist. This event keeps its own editable copy.</p>
+      <p className="form-note checklist-note">Changes here apply only to this event checklist. Manage reusable templates from the Checklist menu.</p>
     </form>
   );
 }

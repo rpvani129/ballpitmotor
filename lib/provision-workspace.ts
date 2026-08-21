@@ -1,5 +1,5 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { DEFAULT_CHECKLIST_ITEMS, DEFAULT_EVENT_TYPES, DEFAULT_TEAMS, DEFAULT_TRACKS } from "@/lib/workspace-defaults";
+import { DEFAULT_CHECKLIST_TEMPLATES, DEFAULT_EVENT_TYPES, DEFAULT_TEAMS, DEFAULT_TRACKS } from "@/lib/workspace-defaults";
 
 export async function provisionWorkspace(supabase: SupabaseClient, user: User) {
   const { data: existing } = await supabase.from("memberships").select("workspace_id").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
@@ -29,13 +29,15 @@ export async function provisionWorkspace(supabase: SupabaseClient, user: User) {
     if (configurationError) throw configurationError;
   }
 
-  const { data: template, error: templateError } = await supabase.from("checklist_templates")
-    .insert({ workspace_id: workspaceId, name: "Pre-Event Safety", version: 1, is_active: true }).select("id").single();
-  if (templateError || !template) throw templateError ?? new Error("Checklist template could not be created.");
-  const { error: itemError } = await supabase.from("checklist_template_items").insert(
-    DEFAULT_CHECKLIST_ITEMS.map((label, position) => ({ workspace_id: workspaceId, template_id: template.id, position, label, response_type: "boolean", is_required: true })),
-  );
-  if (itemError) throw itemError;
+  for (const checklist of DEFAULT_CHECKLIST_TEMPLATES) {
+    const { data: template, error: templateError } = await supabase.from("checklist_templates")
+      .insert({ workspace_id: workspaceId, name: checklist.name, version: 1, is_active: true }).select("id").single();
+    if (templateError || !template) throw templateError ?? new Error(`${checklist.name} could not be created.`);
+    const { error: itemError } = await supabase.from("checklist_template_items").insert(
+      checklist.items.map((label, position) => ({ workspace_id: workspaceId, template_id: template.id, position, label, response_type: "boolean", is_required: true })),
+    );
+    if (itemError) throw itemError;
+  }
 
   return workspaceId;
 }

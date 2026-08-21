@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deleteEvent, startChecklist } from "@/app/actions";
+import { deleteEvent } from "@/app/actions";
 import { formatLap } from "@/lib/grid";
 import { createClient } from "@/lib/supabase/server";
 import ChecklistEditor from "./ChecklistEditor";
@@ -48,7 +48,9 @@ type Session = {
 type ChecklistRun = {
   id: string;
   status: string;
+  created_at: string;
   template_snapshot: { id: string; label: string; position: number }[];
+  checklist_templates: { name: string } | null;
 };
 
 type ChecklistResult = { response: { item_id?: string; checked?: boolean } | null; template_item_id: string | null; note: string | null };
@@ -60,10 +62,10 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createClient();
-  const [{ data: rawEvent }, { data: rawSessions }, { data: rawRun }, { data: rawNotes }, { data: rawAttachments }, { data: authData }] = await Promise.all([
+  const [{ data: rawEvent }, { data: rawSessions }, { data: rawRuns }, { data: rawNotes }, { data: rawAttachments }, { data: authData }] = await Promise.all([
     supabase.from("events").select("*,vehicles(name),tire_sets!events_tire_set_fkey(business_id,manufacturer,model,size,compound),front_pad_sets:pad_sets!events_front_pad_set_fkey(business_id,manufacturer,model,compound),rear_pad_sets:pad_sets!events_rear_pad_set_fkey(business_id,manufacturer,model,compound)").eq("id", id).single(),
     supabase.from("sessions").select("id,session_number,started_at,best_lap_ms,is_fastest,source_url,notes").eq("event_id", id).order("session_number"),
-    supabase.from("checklist_runs").select("id,status,template_snapshot").eq("event_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("checklist_runs").select("id,status,created_at,template_snapshot,checklist_templates(name)").eq("event_id", id).order("created_at", { ascending: false }),
     supabase.from("event_notes").select("id,category,body,created_by,created_at,updated_at").eq("event_id", id).order("created_at", { ascending: false }),
     supabase.from("event_attachments").select("id,storage_path,file_name,mime_type,file_size_bytes,attachment_type,caption,created_at").eq("event_id", id).order("created_at", { ascending: false }),
     supabase.auth.getUser(),
@@ -71,7 +73,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   if (!rawEvent) notFound();
   const event = rawEvent as unknown as Event;
   const sessions = (rawSessions ?? []) as Session[];
-  const run = rawRun as ChecklistRun | null;
+  const checklistRuns = (rawRuns ?? []) as unknown as ChecklistRun[];
+  const run = checklistRuns.find((item) => item.id === query.checklist_run) ?? checklistRuns[0] ?? null;
   const notes = (rawNotes ?? []) as EventNote[];
   const attachments = (rawAttachments ?? []) as EventAttachment[];
   const authorIds = [...new Set(notes.map((note) => note.created_by))];
@@ -114,7 +117,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
 
       <nav className="record-tabs" aria-label="Event sections">
         <Link className={activeTab === "sessions" ? "active" : ""} href={`/dashboard/events/${id}?tab=sessions`}>Sessions <span>{sessions.length}</span></Link>
-        <Link className={activeTab === "checklist" ? "active" : ""} href={`/dashboard/events/${id}?tab=checklist`}>Checklist {run && <span>{run.status === "complete" ? "Done" : "Open"}</span>}</Link>
+        <Link className={activeTab === "checklist" ? "active" : ""} href={`/dashboard/events/${id}?tab=checklist`}>Checklists <span>{checklistRuns.length}</span></Link>
         <Link className={activeTab === "notes" ? "active" : ""} href={`/dashboard/events/${id}?tab=notes`}>Notes <span>{notes.length}</span></Link>
         <Link className={activeTab === "attachments" ? "active" : ""} href={`/dashboard/events/${id}?tab=attachments`}>Attachments <span>{attachments.length}</span></Link>
       </nav>
@@ -141,9 +144,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       </div>}
 
       {activeTab === "checklist" && <section className="section-block checklist-block tab-panel">
-        <div className="section-heading"><div><p className="eyebrow">PRE-EVENT</p><h2>Safety checklist</h2></div>{run && <span className={`status-pill ${run.status}`}>{run.status}</span>}</div>
-        {!run ? <form action={startChecklist}><input type="hidden" name="event_id" value={event.id} /><input type="hidden" name="vehicle_id" value={event.vehicle_id ?? ""} /><button className="button dark">Start pre-event checklist</button></form> :
-          <ChecklistEditor workspaceId={rawEvent.workspace_id} eventId={event.id} runId={run.id} initialItems={checklistItems} initialAttachments={checklistAttachments} />}
+        <div className="section-heading"><div><p className="eyebrow">EVENT WORKFLOW</p><h2>Event checklists</h2></div><Link className="button primary" href={`/dashboard/events/${event.id}/checklists/new`}>+ Add checklist</Link></div>
+        {checklistRuns.length ? <div className="event-checklist-list">{checklistRuns.map((item) => <Link className={item.id === run?.id ? "event-checklist-card active" : "event-checklist-card"} href={`/dashboard/events/${event.id}?tab=checklist&checklist_run=${item.id}`} key={item.id}><div><strong>{item.checklist_templates?.name ?? "Event checklist"}</strong><span>Started {new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></div><span className={`status-pill ${item.status}`}>{item.status}</span></Link>)}</div> : <div className="empty-state compact"><strong>No event checklists yet.</strong><p>Add a packing, safety, session-prep, post-event, or custom checklist.</p></div>}
+        {run && <section className="selected-checklist"><div className="section-heading compact-heading"><div><p className="eyebrow">ACTIVE CHECKLIST</p><h2>{run.checklist_templates?.name ?? "Event checklist"}</h2></div><span className={`status-pill ${run.status}`}>{run.status}</span></div><ChecklistEditor workspaceId={rawEvent.workspace_id} eventId={event.id} runId={run.id} initialItems={checklistItems} initialAttachments={checklistAttachments} /></section>}
       </section>}
 
       {activeTab === "notes" && <section className="section-block tab-panel"><div className="section-heading"><div><p className="eyebrow">EVENT JOURNAL</p><h2>Notes</h2></div><div className="section-heading-actions"><span>{notes.length} entries</span><Link className="button primary" href={`/dashboard/events/${event.id}/notes/new`}>+ Add note</Link></div></div>{notes.length ? <div className="event-note-list">{notes.map((note) => { const created = new Date(note.created_at); const edited = note.updated_at !== note.created_at; const author = note.created_by === authData.user?.id ? "You" : authorNames.get(note.created_by) ?? "Workspace member"; return <Link className="event-note-card" href={`/dashboard/events/${event.id}/notes/${note.id}/edit`} key={note.id}><div className="event-note-meta"><span>{note.category}</span><time dateTime={note.created_at}>{created.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {created.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</time></div><p>{note.body}</p><small>{author}{edited ? " · Edited" : ""} · Edit →</small></Link>; })}</div> : <div className="empty-state"><strong>No event notes yet.</strong><p>Add plans, setup decisions, observations, incidents, results, or follow-up.</p></div>}</section>}

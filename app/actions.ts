@@ -869,13 +869,13 @@ export async function startChecklist(formData: FormData) {
   if (!membership) redirect("/dashboard");
   const eventId = String(formData.get("event_id") ?? "");
   const vehicleId = String(formData.get("vehicle_id") ?? "") || null;
+  const templateId = String(formData.get("template_id") ?? "");
   const { data: template } = await supabase
     .from("checklist_templates")
     .select("id, version, checklist_template_items(id, label, position, is_required)")
     .eq("workspace_id", membership.workspace_id)
+    .eq("id", templateId)
     .eq("is_active", true)
-    .order("version", { ascending: false })
-    .limit(1)
     .single();
   if (!template) redirect(`/dashboard/events/${eventId}?error=checklist`);
   const { data: run } = await supabase.from("checklist_runs").insert({
@@ -888,6 +888,7 @@ export async function startChecklist(formData: FormData) {
   }).select("id").single();
   if (!run) redirect(`/dashboard/events/${eventId}?error=checklist`);
   revalidatePath(`/dashboard/events/${eventId}`);
+  redirect(`/dashboard/events/${eventId}?tab=checklist&checklist_run=${run.id}`);
 }
 
 type ChecklistItemInput = { id: string; label: string; checked: boolean; note: string };
@@ -898,7 +899,6 @@ export async function saveChecklist(formData: FormData) {
   const eventId = String(formData.get("event_id") ?? "");
   const runId = String(formData.get("run_id") ?? "");
   const intent = String(formData.get("intent") ?? "save");
-  const makeTemplate = formData.get("make_template") === "true";
   let submitted: unknown;
   try { submitted = JSON.parse(String(formData.get("items_json") ?? "[]")); } catch { submitted = []; }
   const items = (Array.isArray(submitted) ? submitted : []).slice(0, 75).map((item, position) => {
@@ -915,49 +915,21 @@ export async function saveChecklist(formData: FormData) {
   if (!eventId || !runId || !items.length) redirect(`/dashboard/events/${eventId}?error=checklist`);
   const { data: run } = await supabase
     .from("checklist_runs")
-    .select("id,template_id,template_version")
+    .select("id")
     .eq("workspace_id", membership.workspace_id)
     .eq("event_id", eventId)
     .eq("id", runId)
     .single();
   if (!run) redirect(`/dashboard/events/${eventId}?error=checklist`);
 
-  let snapshot = items.map(({ id, label, position, is_required }) => ({ id, label, position, is_required }));
-  let templateId = run.template_id;
-  let templateVersion = run.template_version;
-  const originalItemIds = items.map((item) => item.id);
-  if (makeTemplate) {
-    const { data: latest } = await supabase.from("checklist_templates").select("version").eq("workspace_id", membership.workspace_id).order("version", { ascending: false }).limit(1).maybeSingle();
-    templateVersion = (latest?.version ?? 0) + 1;
-    const { data: template, error: templateError } = await supabase.from("checklist_templates").insert({
-      workspace_id: membership.workspace_id,
-      name: "Standard Pre-Event Checklist",
-      version: templateVersion,
-      is_active: false,
-    }).select("id").single();
-    if (templateError || !template) redirect(`/dashboard/events/${eventId}?error=template`);
-    templateId = template.id;
-    const { data: templateItems, error: itemError } = await supabase.from("checklist_template_items").insert(items.map((item) => ({
-      workspace_id: membership.workspace_id,
-      template_id: template.id,
-      position: item.position,
-      label: item.label,
-      is_required: true,
-    }))).select("id,label,position,is_required");
-    if (itemError || !templateItems) redirect(`/dashboard/events/${eventId}?error=template`);
-    await supabase.from("checklist_templates").update({ is_active: false }).eq("workspace_id", membership.workspace_id).eq("is_active", true);
-    const { error: activateError } = await supabase.from("checklist_templates").update({ is_active: true }).eq("workspace_id", membership.workspace_id).eq("id", template.id);
-    if (activateError) redirect(`/dashboard/events/${eventId}?error=template`);
-    snapshot = templateItems;
-    await Promise.all(originalItemIds.map((itemId, position) => supabase.from("checklist_item_attachments").update({ checklist_item_key: snapshot[position]?.id }).eq("workspace_id", membership.workspace_id).eq("checklist_run_id", runId).eq("checklist_item_key", itemId)));
-  }
+  const snapshot = items.map(({ id, label, position, is_required }) => ({ id, label, position, is_required }));
 
   await supabase.from("checklist_item_results").delete().eq("checklist_run_id", runId);
   const { error: resultError } = await supabase.from("checklist_item_results").insert(
     items.map((item, position) => ({
       workspace_id: membership.workspace_id,
       checklist_run_id: runId,
-      template_item_id: makeTemplate ? snapshot[position]?.id ?? null : null,
+      template_item_id: null,
       response: { item_id: snapshot[position]?.id ?? item.id, checked: item.checked },
       note: item.note || null,
       completed_by: user.id,
@@ -966,11 +938,46 @@ export async function saveChecklist(formData: FormData) {
   );
   if (resultError) redirect(`/dashboard/events/${eventId}?error=checklist`);
   const { error: runError } = await supabase.from("checklist_runs").update({
-    template_id: templateId,
-    template_version: templateVersion,
     template_snapshot: snapshot,
     status: intent === "complete" ? "complete" : "open",
   }).eq("workspace_id", membership.workspace_id).eq("id", runId);
   if (runError) redirect(`/dashboard/events/${eventId}?error=checklist`);
   revalidatePath(`/dashboard/events/${eventId}`);
+}
+
+export async function saveChecklistTemplate(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  if (!membership) redirect("/dashboard");
+  const templateId = String(formData.get("template_id") ?? "") || null;
+  const name = String(formData.get("name") ?? "").trim().slice(0, 120);
+  let submitted: unknown;
+  try { submitted = JSON.parse(String(formData.get("items_json") ?? "[]")); } catch { submitted = []; }
+  const items = (Array.isArray(submitted) ? submitted : []).slice(0, 75)
+    .map((item) => ({ label: String((item as { label?: unknown }).label ?? "").trim().slice(0, 240) }))
+    .filter((item) => item.label);
+  const returnPath = templateId ? `/dashboard/checklists/${templateId}/edit` : "/dashboard/checklists/new";
+  if (!name || !items.length) redirect(`${returnPath}?error=required`);
+  const { error } = await supabase.rpc("save_checklist_template", {
+    p_workspace_id: membership.workspace_id,
+    p_template_id: templateId,
+    p_name: name,
+    p_items: items,
+  });
+  if (error) redirect(`${returnPath}?error=save`);
+  revalidatePath("/dashboard/checklists");
+  redirect(`/dashboard/checklists?saved=${templateId ? "updated" : "created"}`);
+}
+
+export async function deleteChecklistTemplate(formData: FormData) {
+  const { supabase, membership } = await authContext();
+  const templateId = String(formData.get("template_id") ?? "");
+  if (!membership || !templateId) redirect("/dashboard/checklists");
+  const { count } = await supabase.from("checklist_runs").select("id", { count: "exact", head: true })
+    .eq("workspace_id", membership.workspace_id).eq("template_id", templateId);
+  if (count) redirect("/dashboard/checklists?error=used");
+  const { data, error } = await supabase.from("checklist_templates").delete()
+    .eq("workspace_id", membership.workspace_id).eq("id", templateId).select("id").maybeSingle();
+  if (error || !data) redirect("/dashboard/checklists?error=delete");
+  revalidatePath("/dashboard/checklists");
+  redirect("/dashboard/checklists?deleted=1");
 }
