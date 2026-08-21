@@ -22,6 +22,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Link href="/dashboard/consumables">Tires + pads</Link>
           <Link href="/dashboard/tracks">Tracks</Link>
           <Link href="/dashboard/reports">Reports</Link>
+          <Link href="/dashboard/data-management">Data Management</Link>
         </nav>
         <div className="topbar-actions">
           <a href="https://ballpitmotor.com">Ball Pit Motorsports ↗</a>

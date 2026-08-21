@@ -15,9 +15,7 @@ type Event = {
 };
 type Tire = { id: string; business_id: string; manufacturer: string; model: string; size: string | null; starting_sessions: number | null; status: string; vehicles: { name: string } | null };
 type Pad = { id: string; business_id: string; axle: "front" | "rear"; manufacturer: string; model: string; compound: string | null; starting_sessions: number | null; status: string; vehicles: { name: string } | null };
-type Tab = "bests" | "progression" | "utilization" | "consumables" | "quality";
-type QualityIssue = { key: string; event: Event; level: "record" | "session"; title: string; detail: string; session?: Session };
-type Review = { issue_key: string; resolution: "confirmed" | "intentionally_missing"; resolved_at: string };
+type Tab = "bests" | "progression" | "utilization" | "consumables";
 
 const eventFastest = (event: Event) => {
   const laps = event.sessions.map((session) => session.best_lap_ms).filter((lap): lap is number => lap != null);
@@ -25,14 +23,12 @@ const eventFastest = (event: Event) => {
 };
 const displayDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-export default function ReportsClient({ events, tires, pads, reviews, resolveAction, reopenAction }: { events: Event[]; tires: Tire[]; pads: Pad[]; reviews: Review[]; resolveAction: (formData: FormData) => Promise<void>; reopenAction: (formData: FormData) => Promise<void> }) {
+export default function ReportsClient({ events, tires, pads }: { events: Event[]; tires: Tire[]; pads: Pad[] }) {
   const [tab, setTab] = useState<Tab>("bests");
   const [vehicle, setVehicle] = useState("");
   const [driver, setDriver] = useState("");
   const [track, setTrack] = useState("");
   const [configuration, setConfiguration] = useState("");
-  const [qualityFilter, setQualityFilter] = useState("all");
-  const [qualityStatus, setQualityStatus] = useState<"open" | "resolved">("open");
 
   const vehicles = useMemo(() => [...new Set(events.map((event) => event.vehicles?.name).filter(Boolean) as string[])].sort(), [events]);
   const drivers = useMemo(() => [...new Set(events.map((event) => event.driver_name).filter(Boolean) as string[])].sort(), [events]);
@@ -78,45 +74,17 @@ export default function ReportsClient({ events, tires, pads, reviews, resolveAct
     };
   }, [events, tires, pads]);
 
-  const qualityIssues = useMemo(() => {
-    const issues: QualityIssue[] = [];
-    events.forEach((event) => {
-      const add = (key: string, title: string, detail: string) => issues.push({ key: `${event.id}-${key}`, event, level: "record", title, detail });
-      if (!event.event_type_id) add("event-type", "Missing Event Type", "Assign a controlled Event Type.");
-      if (!event.vehicle_id) add("vehicle", "Missing vehicle", "Assign the vehicle used for this event.");
-      if (!event.driver_name?.trim()) add("driver", "Missing driver", "Add the event driver.");
-      if ([event.temperature_f, event.conditions, event.wind_speed_mph, event.humidity_pct, event.track_condition].some((value) => value == null || value === "")) add("weather", "Incomplete weather", "Review the event-level weather record.");
-      if (!event.tire_set_id) add("tire", "Missing tire assignment", "Assign a tire set or confirm historical data is unavailable.");
-      if (!event.front_pad_set_id) add("front-pad", "Missing front pad assignment", "Assign a front pad set or confirm historical data is unavailable.");
-      if (!event.rear_pad_set_id) add("rear-pad", "Missing rear pad assignment", "Assign a rear pad set or confirm historical data is unavailable.");
-      if (!event.sessions.length && event.status === "complete") add("sessions", "Completed event has no sessions", "Add sessions or verify the event should remain empty.");
-      event.sessions.forEach((session) => {
-        if (session.best_lap_ms == null) issues.push({ key: `${session.id}-lap`, event, session, level: "session", title: "Missing lap time", detail: "Add the lap or confirm timing was not provided." });
-        if (session.started_at == null) issues.push({ key: `${session.id}-start`, event, session, level: "session", title: "Missing start time", detail: "Add the session start time or confirm it is unknown." });
-      });
-    });
-    const duplicateGroups = new Map<string, Event[]>();
-    events.forEach((event) => { const key = [event.event_date, event.track_name, event.configuration_name, event.vehicle_id ?? ""].join("|"); duplicateGroups.set(key, [...(duplicateGroups.get(key) ?? []), event]); });
-    duplicateGroups.forEach((group) => { if (group.length > 1) group.forEach((event) => issues.push({ key: `${event.id}-duplicate`, event, level: "record", title: "Possible duplicate event", detail: `${group.length} events share this date, vehicle, track, and configuration. Review before changing.` })); });
-    return issues;
-  }, [events]);
-  const reviewMap = new Map(reviews.map((review) => [review.issue_key, review]));
-  const visibleIssues = qualityIssues.filter((issue) => (qualityStatus === "resolved") === reviewMap.has(issue.key) && (qualityFilter === "all" || issue.title === qualityFilter));
-  const openIssueCount = qualityIssues.filter((issue) => !reviewMap.has(issue.key)).length;
-  const issueTypes = [...new Set(qualityIssues.map((issue) => issue.title))].sort();
-
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "bests", label: "Personal bests", count: personalBests.length }, { id: "progression", label: "Progression", count: progression.length },
     { id: "utilization", label: "Utilization", count: utilization.length }, { id: "consumables", label: "Tire + pad life", count: tires.length + pads.length },
-    { id: "quality", label: "Data quality", count: openIssueCount },
   ];
 
   return <>
     <section className="report-summary" aria-label="Report summary">
-      <div><strong>{personalBests.length}</strong><span>Personal-best combinations</span></div><div><strong>{filtered.reduce((sum, event) => sum + event.sessions.length, 0)}</strong><span>Sessions in view</span></div><div><strong>{utilization.reduce((sum, row) => sum + row.rentals, 0)}</strong><span>Rental sessions</span></div><div className={openIssueCount ? "warning" : "good"}><strong>{openIssueCount}</strong><span>Items to reconcile</span></div>
+      <div><strong>{personalBests.length}</strong><span>Personal-best combinations</span></div><div><strong>{filtered.reduce((sum, event) => sum + event.sessions.length, 0)}</strong><span>Sessions in view</span></div><div><strong>{utilization.reduce((sum, row) => sum + row.rentals, 0)}</strong><span>Rental sessions</span></div><div><strong>{events.length}</strong><span>Total events</span></div>
     </section>
     <div className="report-tabs" role="tablist">{tabs.map((item) => <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)} role="tab" aria-selected={tab === item.id}>{item.label}<span>{item.count}</span></button>)}</div>
-    {tab !== "consumables" && tab !== "quality" && <div className="report-filters">
+    {tab !== "consumables" && <div className="report-filters">
       <label>Vehicle<select value={vehicle} onChange={(e) => setVehicle(e.target.value)}><option value="">All vehicles</option>{vehicles.map((name) => <option key={name}>{name}</option>)}</select></label>
       <label>Driver<select value={driver} onChange={(e) => setDriver(e.target.value)}><option value="">All drivers</option>{drivers.map((name) => <option key={name}>{name}</option>)}</select></label>
       <label>Track<select value={track} onChange={(e) => { setTrack(e.target.value); setConfiguration(""); }}><option value="">All tracks</option>{tracks.map((name) => <option key={name}>{name}</option>)}</select></label>
@@ -131,11 +99,9 @@ export default function ReportsClient({ events, tires, pads, reviews, resolveAct
 
     {tab === "consumables" && <ReportSection eyebrow="WEAR" title="Tire and pad life" note="Calculated sessions come from events assigned to each set. Known total includes the entered starting count."><h3>Tires</h3><ConsumableTable rows={consumableUsage.tires.map((item) => ({ id: item.id, code: item.business_id, description: [item.manufacturer, item.model, item.size].filter(Boolean).join(" "), vehicle: item.vehicles?.name ?? "—", status: item.status, calculated: item.calculated, total: item.total }))} /><h3 className="report-subhead">Pads</h3><ConsumableTable rows={consumableUsage.pads.map((item) => ({ id: item.id, code: item.business_id, description: [item.manufacturer, item.model, item.compound].filter(Boolean).join(" "), vehicle: `${item.vehicles?.name ?? "—"} · ${item.axle}`, status: item.status, calculated: item.calculated, total: item.total }))} /></ReportSection>}
 
-    {tab === "quality" && <ReportSection eyebrow="RECONCILIATION" title="Missing data" note="This queue uses production records to expose errors and intentionally incomplete history. Correct the source, confirm the record, or document that the value is unavailable."><div className="quality-status-tabs"><button className={qualityStatus === "open" ? "active" : ""} onClick={() => setQualityStatus("open")}>Open <span>{openIssueCount}</span></button><button className={qualityStatus === "resolved" ? "active" : ""} onClick={() => setQualityStatus("resolved")}>Resolved <span>{reviews.length}</span></button></div><div className="quality-toolbar"><label>Issue type<select value={qualityFilter} onChange={(e) => setQualityFilter(e.target.value)}><option value="all">All issues</option>{issueTypes.map((name) => <option key={name}>{name}</option>)}</select></label><span>Showing <strong>{visibleIssues.length}</strong> records</span></div><div className="quality-list">{visibleIssues.map((issue) => { const review = reviewMap.get(issue.key); return <div className="quality-card" key={issue.key}><div><span className="quality-type">{issue.level}</span><strong>{issue.title}</strong><p>{issue.detail}</p><small>{issue.event.business_id} · {displayDate(issue.event.event_date)} · {issue.event.vehicles?.name ?? "Unassigned"}{issue.session ? ` · Session ${issue.session.session_number}` : ""}{review ? ` · ${review.resolution.replace("_", " ")}` : ""}</small></div><div className="quality-actions"><Link className="button ghost small" href={issue.session ? `/dashboard/events/${issue.event.id}/sessions/${issue.session.id}/edit` : `/dashboard/events/${issue.event.id}/edit`}>Fix record</Link>{review ? <form action={reopenAction}><input type="hidden" name="issue_key" value={issue.key} /><button className="text-button" type="submit">Reopen</button></form> : <><QualityDecision action={resolveAction} issue={issue} resolution="confirmed" label="Confirm" /><QualityDecision action={resolveAction} issue={issue} resolution="intentionally_missing" label="Unavailable" /></>}</div></div>; })}</div>{!visibleIssues.length && <Empty text={qualityStatus === "open" ? "No open records match this issue filter." : "No resolved records match this issue filter."} />}</ReportSection>}
   </>;
 }
 
 function ReportSection({ eyebrow, title, note, children }: { eyebrow: string; title: string; note: string; children: React.ReactNode }) { return <section className="section-block report-section"><div className="section-heading"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2><p>{note}</p></div></div>{children}</section>; }
 function Empty({ text }: { text: string }) { return <div className="empty-state compact"><strong>No reportable records.</strong><p>{text}</p></div>; }
 function ConsumableTable({ rows }: { rows: { id: string; code: string; description: string; vehicle: string; status: string; calculated: number; total: number | null }[] }) { return <div className="report-table consumable-report-table"><div className="report-table-head"><span>Description</span><span>Vehicle / axle</span><span>Status</span><span>Calculated</span><span>Known total</span></div>{rows.map((row) => <div className={`report-table-row ${row.status !== "active" ? "retired" : ""}`} key={row.id}><div><strong>{row.description}</strong><span>{row.code}</span></div><span>{row.vehicle}</span><span>{row.status}</span><b>{row.calculated}</b><b>{row.total ?? "Unknown"}</b></div>)}</div>; }
-function QualityDecision({ action, issue, resolution, label }: { action: (formData: FormData) => Promise<void>; issue: QualityIssue; resolution: "confirmed" | "intentionally_missing"; label: string }) { return <form action={action}><input type="hidden" name="issue_key" value={issue.key} /><input type="hidden" name="issue_type" value={issue.title} /><input type="hidden" name="entity_type" value={issue.session ? "session" : "event"} /><input type="hidden" name="entity_id" value={issue.session?.id ?? issue.event.id} /><input type="hidden" name="resolution" value={resolution} /><button className="text-button" type="submit">{label}</button></form>; }

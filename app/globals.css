@@ -715,6 +715,43 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
 .service-import-row span, .service-import-row small { color: var(--muted); }
 .garmin-review-list { display: grid; gap: 1rem; }
 
+.data-management-page { display: grid; gap: 1.5rem; }
+.data-management-summary, .import-review-summary { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); background: var(--paper); }
+.data-management-summary > div, .import-review-summary > div { display: grid; gap: .2rem; padding: 1.25rem; border-right: 1px solid var(--line); }
+.data-management-summary > div:last-child, .import-review-summary > div:last-child { border-right: 0; }
+.data-management-summary strong, .import-review-summary strong { font-family: var(--font-display); font-size: 2.2rem; line-height: .9; }
+.data-management-summary span, .import-review-summary span { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
+.data-management-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.data-management-card { display: flex; flex-direction: column; align-items: flex-start; min-height: 300px; padding: 1.5rem; border: 1px solid var(--line); background: var(--paper); }
+.data-management-card h2 { margin: .35rem 0 .75rem; }
+.data-management-card p:not(.eyebrow) { color: var(--muted); }
+.data-management-card > .button, .data-management-card .data-import-form { margin-top: auto; }
+.data-import-form { display: grid; gap: .75rem; width: 100%; }
+.data-import-form label { display: grid; gap: .45rem; font-weight: 700; }
+.data-import-form input[type="file"] { width: 100%; padding: .75rem; background: #fff; border: 1px solid var(--line); }
+.data-import-form p { margin: 0; font-size: .85rem; }
+.import-activity-list, .data-change-list { display: grid; border-top: 1px solid var(--line); }
+.import-activity-list > a, .data-change-list > article { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+.import-activity-list > a > div, .data-change-list > article > div { display: grid; gap: .2rem; }
+.import-activity-list span, .data-change-list span { color: var(--muted); font-size: .85rem; }
+.change-badge { align-self: center; min-width: 75px; padding: .35rem .5rem; text-align: center; color: #fff !important; background: var(--ink); font-weight: 800; text-transform: uppercase; }
+.change-badge.create { background: #26734d; }
+.change-badge.update { background: var(--red); }
+.import-errors { display: grid; gap: .5rem; padding: 1.25rem; border-left: 5px solid var(--red); background: #efe4d5; }
+.import-errors h2 { margin: 0 0 .5rem; }
+.import-errors > div { display: grid; gap: .15rem; }
+
+@media (max-width: 850px) {
+  .data-management-grid { grid-template-columns: 1fr; }
+  .data-management-card { min-height: 0; }
+}
+@media (max-width: 600px) {
+  .data-management-summary, .import-review-summary { grid-template-columns: repeat(2, 1fr); }
+  .data-management-summary > div:nth-child(2), .import-review-summary > div:nth-child(2) { border-right: 0; }
+  .data-management-summary > div:nth-child(-n+2), .import-review-summary > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .import-activity-list > a, .data-change-list > article { flex-direction: column; }
+}
+
 @media (max-width: 680px) {
   .service-upload-panel { padding: 1rem; }
   .service-dropzone { min-height: 160px; padding: 1rem; }
