@@ -575,20 +575,20 @@ export async function updateEvent(formData: FormData) {
   const teamId = String(formData.get("team_id") ?? "");
   const noId = "00000000-0000-0000-0000-000000000000";
   const [{ data: event }, { data: track }, { data: configuration }, { data: vehicle }, { data: tireSet }, { data: frontPadSet }, { data: rearPadSet }, { data: eventType }, { data: team }] = await Promise.all([
-    supabase.from("events").select("id").eq("workspace_id", membership.workspace_id).eq("id", eventId).single(),
+    supabase.from("events").select("id,tire_set_id,front_pad_set_id,rear_pad_set_id").eq("workspace_id", membership.workspace_id).eq("id", eventId).single(),
     supabase.from("tracks").select("id,name,latitude,longitude").eq("workspace_id", membership.workspace_id).eq("id", trackId).single(),
     supabase.from("track_configurations").select("id,name,track_id").eq("workspace_id", membership.workspace_id).eq("id", configurationId).eq("track_id", trackId).single(),
     supabase.from("vehicles").select("id,name").eq("workspace_id", membership.workspace_id).eq("id", vehicleId).single(),
-    supabase.from("tire_sets").select("id,business_id,vehicle_id").eq("workspace_id", membership.workspace_id).eq("id", tireSetId || noId).maybeSingle(),
-    supabase.from("pad_sets").select("id,business_id,vehicle_id,axle").eq("workspace_id", membership.workspace_id).eq("id", frontPadSetId || noId).maybeSingle(),
-    supabase.from("pad_sets").select("id,business_id,vehicle_id,axle").eq("workspace_id", membership.workspace_id).eq("id", rearPadSetId || noId).maybeSingle(),
+    supabase.from("tire_sets").select("id,business_id,vehicle_id,status").eq("workspace_id", membership.workspace_id).eq("id", tireSetId || noId).maybeSingle(),
+    supabase.from("pad_sets").select("id,business_id,vehicle_id,axle,status").eq("workspace_id", membership.workspace_id).eq("id", frontPadSetId || noId).maybeSingle(),
+    supabase.from("pad_sets").select("id,business_id,vehicle_id,axle,status").eq("workspace_id", membership.workspace_id).eq("id", rearPadSetId || noId).maybeSingle(),
     supabase.from("event_types").select("id,name").eq("workspace_id", membership.workspace_id).eq("id", eventTypeId || noId).maybeSingle(),
     supabase.from("teams").select("id,name").eq("workspace_id", membership.workspace_id).eq("id", teamId || noId).maybeSingle(),
   ]);
   const invalidConsumables =
-    (tireSetId && (!tireSet || tireSet.vehicle_id !== vehicleId)) ||
-    (frontPadSetId && (!frontPadSet || frontPadSet.vehicle_id !== vehicleId || frontPadSet.axle !== "front")) ||
-    (rearPadSetId && (!rearPadSet || rearPadSet.vehicle_id !== vehicleId || rearPadSet.axle !== "rear")) ||
+    (tireSetId && (!tireSet || tireSet.vehicle_id !== vehicleId || (tireSet.status !== "active" && tireSet.id !== event?.tire_set_id))) ||
+    (frontPadSetId && (!frontPadSet || frontPadSet.vehicle_id !== vehicleId || frontPadSet.axle !== "front" || (frontPadSet.status !== "active" && frontPadSet.id !== event?.front_pad_set_id))) ||
+    (rearPadSetId && (!rearPadSet || rearPadSet.vehicle_id !== vehicleId || rearPadSet.axle !== "rear" || (rearPadSet.status !== "active" && rearPadSet.id !== event?.rear_pad_set_id))) ||
     (eventTypeId && !eventType) ||
     (teamId && !team);
   if (!event || !track || !configuration || !vehicle || !date || !eventName || invalidConsumables) {
@@ -792,21 +792,26 @@ export async function addSession(formData: FormData) {
   if (!membership) redirect("/dashboard");
   const eventId = String(formData.get("event_id") ?? "");
   const sessionNumber = Number(formData.get("session_number"));
+  const sessionCount = Number(formData.get("session_count") ?? 1);
   const bestLapInput = String(formData.get("best_lap") ?? "").trim();
   const bestLap = bestLapInput ? parseLap(bestLapInput) : null;
-  if (!eventId || !sessionNumber || (bestLapInput && !bestLap)) redirect(`/dashboard/events/${eventId}/sessions/new?error=session`);
-  const { error } = await supabase.from("sessions").insert({
+  if (!eventId || !Number.isInteger(sessionNumber) || sessionNumber < 1 || !Number.isInteger(sessionCount) || sessionCount < 1 || sessionCount > 20 || (sessionCount === 1 && bestLapInput && !bestLap)) redirect(`/dashboard/events/${eventId}/sessions/new?error=session`);
+  const sharedNotes = String(formData.get("notes") ?? "").trim() || null;
+  const sessions = Array.from({ length: sessionCount }, (_, index) => ({
     workspace_id: membership.workspace_id,
     event_id: eventId,
-    session_number: sessionNumber,
-    started_at: String(formData.get("started_at") ?? "") || null,
-    best_lap_ms: bestLap,
-    source_url: String(formData.get("source_url") ?? "").trim() || null,
-    notes: String(formData.get("notes") ?? "").trim() || null,
+    session_number: sessionNumber + index,
+    started_at: sessionCount === 1 ? String(formData.get("started_at") ?? "") || null : null,
+    best_lap_ms: sessionCount === 1 ? bestLap : null,
+    source_url: sessionCount === 1 ? String(formData.get("source_url") ?? "").trim() || null : null,
+    notes: sharedNotes,
     created_by: user.id,
-  });
+  }));
+  const { error } = await supabase.from("sessions").insert(sessions);
   if (error) redirect(`/dashboard/events/${eventId}/sessions/new?error=session`);
   revalidatePath(`/dashboard/events/${eventId}`);
+  revalidatePath("/dashboard/consumables");
+  revalidatePath("/dashboard/reports");
   redirect(`/dashboard/events/${eventId}?tab=sessions`);
 }
 

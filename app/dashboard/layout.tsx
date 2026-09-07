@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions";
+import MobileNavigation from "./MobileNavigation";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -16,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <span>BALL PIT MOTORSPORTS</span>
           <strong>THE GRID</strong>
         </Link>
-        <nav aria-label="Primary navigation">
+        <nav className="desktop-navigation" aria-label="Primary navigation">
           <Link href="/dashboard">Events</Link>
           <Link href="/dashboard/vehicles">Vehicles</Link>
           <Link href="/dashboard/consumables">Tires + pads</Link>
@@ -31,6 +32,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <form action={signOut}><button className="text-button">Log out</button></form>
         </div>
       </header>
+      <MobileNavigation />
       {children}
       <footer className="app-footer">
         <span>© 2026 RMKS Partners LLC d/b/a Ball Pit Motorsports</span>
