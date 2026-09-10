@@ -16,12 +16,17 @@ export default function ConsumablesClient({ tab, tires, pads }: { tab: "tires" |
   const bySessionCount = (a: Asset, b: Asset) => b.totalSessions - a.totalSessions || a.business_id.localeCompare(b.business_id);
   const active = assets.filter(x => x.status === "active").sort(bySessionCount);
   const retired = assets.filter(x => x.status !== "active").sort(bySessionCount);
-  const rows = (items: Asset[]) => items.map(asset => <article className={`consumable-row ${asset.status !== "active" ? "retired" : ""}`} key={asset.id}>
-    <div><strong>{asset.manufacturer} {asset.model}</strong><span>{tab === "tires" ? asset.size : `${asset.axle} axle`}{asset.compound ? ` · ${asset.compound}` : ""}</span></div>
-    <div><b className="consumable-code">{asset.business_id}</b><span>{asset.vehicles?.name ?? "Unassigned"}{asset.is_current ? " · Currently installed" : ""}</span></div>
-    <div className="session-count"><strong>{asset.totalSessions}</strong><span>sessions</span>{asset.starting_sessions ? <small>{asset.loggedSessions} calculated + {asset.starting_sessions} previous</small> : <small>{asset.loggedSessions} calculated</small>}</div>
-    <div className="record-actions"><Link className="button ghost compact-button" href={`/dashboard/consumables/${tab}/${asset.id}/edit`}>Edit</Link><DeleteRecordButton action={deleteConsumable} fields={{ asset_id: asset.id, kind: tab }} confirmMessage={`Delete ${asset.business_id}? Sets assigned to events cannot be deleted.`} /></div>
-  </article>);
+  const rows = (items: Asset[]) => items.map(asset => {
+    const eventFilter = new URLSearchParams(tab === "tires"
+      ? { tire_set_id: asset.id, consumable: asset.business_id }
+      : { pad_set_id: asset.id, consumable: asset.business_id });
+    return <article className={`consumable-row ${asset.status !== "active" ? "retired" : ""}`} key={asset.id}>
+      <div><strong>{asset.manufacturer} {asset.model}</strong><span>{tab === "tires" ? asset.size : `${asset.axle} axle`}{asset.compound ? ` · ${asset.compound}` : ""}</span></div>
+      <div><b className="consumable-code">{asset.business_id}</b><span>{asset.vehicles?.name ?? "Unassigned"}{asset.is_current ? " · Currently installed" : ""}</span></div>
+      <Link className="session-count session-count-link" href={`/dashboard?${eventFilter.toString()}`} aria-label={`View events assigned to ${asset.business_id}`} title={`View events assigned to ${asset.business_id}`}><strong>{asset.totalSessions}</strong><span>sessions ↗</span>{asset.starting_sessions ? <small>{asset.loggedSessions} calculated + {asset.starting_sessions} previous</small> : <small>{asset.loggedSessions} calculated</small>}</Link>
+      <div className="record-actions"><Link className="button ghost compact-button" href={`/dashboard/consumables/${tab}/${asset.id}/edit`}>Edit</Link><DeleteRecordButton action={deleteConsumable} fields={{ asset_id: asset.id, kind: tab }} confirmMessage={`Delete ${asset.business_id}? Sets assigned to events cannot be deleted.`} /></div>
+    </article>;
+  });
   const padColumns = (items: Asset[]) => <div className="pad-axle-grid">
     {(["front", "rear"] as const).map(axle => {
       const axleItems = items.filter(asset => asset.axle === axle);

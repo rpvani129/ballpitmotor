@@ -13,6 +13,9 @@ type EventRow = {
   configuration_name: string;
   organization_name: string | null;
   status: string;
+  tire_set_id: string | null;
+  front_pad_set_id: string | null;
+  rear_pad_set_id: string | null;
   vehicles: { name: string } | null;
   sessions: { best_lap_ms: number | null }[];
 };
@@ -24,12 +27,14 @@ const fastestLap = (event: EventRow) => {
   return laps.length ? Math.min(...laps) : null;
 };
 
-export default function EventIndex({ events }: { events: EventRow[] }) {
+export default function EventIndex({ events, initialTireSetId = "", initialPadSetId = "", consumableLabel = "" }: { events: EventRow[]; initialTireSetId?: string; initialPadSetId?: string; consumableLabel?: string }) {
   const [search, setSearch] = useState("");
   const [track, setTrack] = useState("");
   const [configuration, setConfiguration] = useState("");
   const [vehicle, setVehicle] = useState("");
   const [sort, setSort] = useState<SortMode>("date-desc");
+  const [tireSetId, setTireSetId] = useState(initialTireSetId);
+  const [padSetId, setPadSetId] = useState(initialPadSetId);
 
   const tracks = useMemo(() => [...new Set(events.map((event) => event.track_name))].sort(), [events]);
   const configurations = useMemo(() => [...new Set(events.filter((event) => !track || event.track_name === track).map((event) => event.configuration_name))].sort(), [events, track]);
@@ -41,6 +46,8 @@ export default function EventIndex({ events }: { events: EventRow[] }) {
       (!track || event.track_name === track) &&
       (!configuration || event.configuration_name === configuration) &&
       (!vehicle || event.vehicles?.name === vehicle) &&
+      (!tireSetId || event.tire_set_id === tireSetId) &&
+      (!padSetId || event.front_pad_set_id === padSetId || event.rear_pad_set_id === padSetId) &&
       (!needle || [event.business_id, event.event_name, event.organization_name, event.track_name, event.configuration_name, event.vehicles?.name].some((value) => value?.toLowerCase().includes(needle)))
     ).sort((a, b) => {
       if (sort === "date-asc") return a.event_date.localeCompare(b.event_date) || a.business_id.localeCompare(b.business_id);
@@ -53,9 +60,10 @@ export default function EventIndex({ events }: { events: EventRow[] }) {
       if (bLap == null) return -1;
       return sort === "lap-asc" ? aLap - bLap : bLap - aLap;
     });
-  }, [events, search, track, configuration, vehicle, sort]);
+  }, [events, search, track, configuration, vehicle, tireSetId, padSetId, sort]);
 
-  const reset = () => { setSearch(""); setTrack(""); setConfiguration(""); setVehicle(""); setSort("date-desc"); };
+  const reset = () => { setSearch(""); setTrack(""); setConfiguration(""); setVehicle(""); setTireSetId(""); setPadSetId(""); setSort("date-desc"); };
+  const hasConsumableFilter = Boolean(tireSetId || padSetId);
 
   return (
     <div className="event-index">
@@ -67,6 +75,7 @@ export default function EventIndex({ events }: { events: EventRow[] }) {
         <label>Sort<select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}><option value="date-desc">Newest date</option><option value="date-asc">Oldest date</option><option value="lap-asc">Fastest lap: low to high</option><option value="lap-desc">Fastest lap: high to low</option><option value="name-asc">Event name</option></select></label>
         <button className="text-button event-filter-reset" type="button" onClick={reset}>Reset</button>
       </div>
+      {hasConsumableFilter && <div className="event-active-filter"><div><span>{tireSetId ? "Tire usage" : "Pad usage"}</span><strong>Events assigned to {consumableLabel || "selected set"}</strong></div><button className="text-button" type="button" onClick={() => { setTireSetId(""); setPadSetId(""); }}>Clear filter</button></div>}
       <p className="event-result-count">Showing <strong>{visibleEvents.length}</strong> of {events.length} events</p>
       <div className="event-table" role="table" aria-label="Events">
         <div className="event-table-head" role="row"><span>Date</span><span>Event</span><span>Vehicle</span><span>Track + configuration</span><span>Fastest lap</span><span>Sessions</span></div>

@@ -14,6 +14,9 @@ type EventRow = {
   configuration_name: string;
   organization_name: string | null;
   status: string;
+  tire_set_id: string | null;
+  front_pad_set_id: string | null;
+  rear_pad_set_id: string | null;
   vehicles: { name: string } | null;
   sessions: { best_lap_ms: number | null }[];
 };
@@ -57,7 +60,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const [{ data: events }, { count: vehicleCount }, { count: sessionCount }, { data: eventSettings }, { data: userProfile }] = await Promise.all([
     supabase.from("events")
-      .select("id,business_id,event_date,event_name,track_name,configuration_name,organization_name,status,vehicles(name),sessions(best_lap_ms)")
+      .select("id,business_id,event_date,event_name,track_name,configuration_name,organization_name,status,tire_set_id,front_pad_set_id,rear_pad_set_id,vehicles(name),sessions(best_lap_ms)")
       .eq("workspace_id", membership.workspace_id)
       .order("event_date", { ascending: false })
       .order("business_id", { ascending: false }),
@@ -95,7 +98,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <div><p className="eyebrow">EVENT INDEX</p><h2>All events</h2></div>
           <Link href="/dashboard/events/new">Add event →</Link>
         </div>
-        {rows.length ? <EventIndex events={rows} /> : (
+        {rows.length ? <EventIndex events={rows} initialTireSetId={query.tire_set_id ?? ""} initialPadSetId={query.pad_set_id ?? ""} consumableLabel={query.consumable ?? ""} /> : (
           <div className="empty-state"><strong>No events yet.</strong><p>Create the first Event ID, then add sessions to it.</p></div>
         )}
       </section>
