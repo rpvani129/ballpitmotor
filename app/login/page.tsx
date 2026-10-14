@@ -3,6 +3,7 @@ import { login } from "./actions";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const query = await searchParams;
+  const signupEnabled = process.env.PUBLIC_SIGNUP_ENABLED === "true" && Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
   return (
     <main className="login-shell">
       <section className="login-brand">
@@ -22,7 +23,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <label>Email<input name="email" type="email" autoComplete="email" required /></label>
             <label>Password<input name="password" type="password" autoComplete="current-password" minLength={8} required /></label>
             <button className="button primary" formAction={login}>Log in</button>
-            <Link className="button ghost" href="/new-user">Create new user</Link>
+            {signupEnabled ? <Link className="button ghost" href="/new-user">Create new user</Link> : <p className="fine-print">New account registration is temporarily paused. Existing users can still log in.</p>}
           </form>
           <p className="fine-print">Professional Ball Handlers only. For now.</p>
         </div>

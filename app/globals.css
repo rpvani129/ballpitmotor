@@ -821,3 +821,16 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
   .service-import-row .record-actions { width: 100%; }
   .import-item-card { padding: 1rem; }
 }
+.signup-honeypot {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+}
+
+.signup-verification {
+  display: grid;
+  gap: 0.45rem;
+}

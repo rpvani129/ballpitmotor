@@ -32,13 +32,29 @@ export async function signup(formData: FormData) {
 }
 
 export async function registerNewUser(formData: FormData) {
+  if (process.env.PUBLIC_SIGNUP_ENABLED !== "true" || !process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) {
+    redirect("/new-user?error=disabled");
+  }
+
   const supabase = await createClient();
   const firstName = String(formData.get("first_name") ?? "").trim();
   const lastName = String(formData.get("last_name") ?? "").trim();
   const driverName = String(formData.get("driver_name") ?? "").trim() || `${firstName}-${lastName}`;
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  if (!firstName || !lastName || !email || password.length < 8) redirect("/new-user?error=required");
+  const captchaToken = String(formData.get("cf-turnstile-response") ?? "").trim();
+  const honeypot = String(formData.get("company_website") ?? "").trim();
+  const emailIsValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
+
+  // Do not tell automated submissions which trap they triggered.
+  if (honeypot) redirect("/login?message=check-email");
+  if (!firstName || firstName.length > 80 || !lastName || lastName.length > 80 ||
+      !driverName || driverName.length > 120 || !emailIsValid ||
+      password.length < 8 || password.length > 128) {
+    redirect("/new-user?error=required");
+  }
+  if (!captchaToken) redirect("/new-user?error=captcha");
+
   const headerStore = await headers();
   const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
   const protocol = headerStore.get("x-forwarded-proto") ?? "https";
@@ -46,11 +62,12 @@ export async function registerNewUser(formData: FormData) {
     email,
     password,
     options: {
+      captchaToken,
       data: { first_name: firstName, last_name: lastName, driver_name: driverName, driver_number: String(formData.get("driver_number") ?? "").trim(), team_name: String(formData.get("team_name") ?? "").trim() },
       ...(host ? { emailRedirectTo: `${protocol}://${host}/auth/callback` } : {}),
     },
   });
-  if (error) redirect("/new-user?error=signup");
+  if (error) redirect(`/new-user?error=${error.message.toLowerCase().includes("captcha") ? "captcha" : "signup"}`);
   if (data.session && data.user) {
     try { await provisionWorkspace(supabase, data.user); }
     catch { redirect("/login?error=workspace"); }
