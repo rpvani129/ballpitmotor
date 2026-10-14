@@ -8,8 +8,9 @@ function load(path, imports) {
   return module.exports;
 }
 const files = load('lib/vehicle-attachment-files.ts', {});
-for (const extension of ['pdf','jpg','jpeg','png','webp','heic','csv','txt','docx','xlsx']) assert.ok(files.vehicleAttachmentFileDetails({ name: `file.${extension}`, size: 26214400 }));
+for (const extension of ['pdf','jpg','jpeg','png','webp','heic','csv','txt','docx','xlsx','wp8']) assert.ok(files.vehicleAttachmentFileDetails({ name: `file.${extension}`, size: 26214400 }));
 for (const [name,size] of [['file.pdf',0],['file.pdf',26214401],['file.exe',1],['file.html',1]]) assert.equal(files.vehicleAttachmentFileDetails({ name,size }), null);
+assert.equal(files.vehicleAttachmentFileDetails({name:'RunFile_1.WP8',size:132702}).mimeType,'application/octet-stream');
 const visit = (node, predicate) => {
   if (!node || typeof node !== 'object') return null;
   if (predicate(node)) return node;
