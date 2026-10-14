@@ -45,7 +45,7 @@ export default function VehicleAttachments({ workspaceId, vehicleId, recordId, i
       router.refresh(); setMessage('Attachment deleted.');
     } catch { setMessage('Deletion could not be completed. Please retry.'); } finally { setBusy(false); }
   }
-  return <div className="attachment-manager">
+  return <div className="attachment-manager vehicle-attachments">
     {uploadOnly && canEdit && <form className="stack-form" action={upload}>
       <label>File *<input type="file" name="file" accept={VEHICLE_ATTACHMENT_ACCEPT} required disabled={busy} /></label>
       <p className="fine-print">PDF, JPG, PNG, WebP, HEIC, CSV, TXT, Word (.docx), or Excel (.xlsx). Maximum 25 MB.</p>
