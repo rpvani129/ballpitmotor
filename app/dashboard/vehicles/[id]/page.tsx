@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import DeleteRecordButton from "../../DeleteRecordButton";
 import ServiceImportHistory from "./ServiceImportHistory";
 import ServiceRecords from "./ServiceRecords";
+import VehicleAttachments from "./VehicleAttachments";
 
 export default async function VehiclePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) {
   const { id } = await params;
@@ -17,6 +18,12 @@ export default async function VehiclePage({ params, searchParams }: { params: Pr
     supabase.from("events").select("id", { count: "exact", head: true }).eq("vehicle_id", id),
   ]);
   if (!vehicle) notFound();
+  const { data: { user } } = await supabase.auth.getUser();
+  const [{ data: attachments, error: attachmentError }, { data: member }] = await Promise.all([
+    supabase.from("vehicle_attachments").select("*").eq("vehicle_id", id).is("maintenance_record_id", null).order("created_at", { ascending: false }),
+    supabase.from("memberships").select("role").eq("workspace_id", vehicle.workspace_id).eq("user_id", user?.id ?? "").eq("status", "active").maybeSingle(),
+  ]);
+  const canEdit = Boolean(member && ["owner", "admin", "editor"].includes(member.role));
   const sourcePaths = [...new Set([...(maintenance ?? []).map((record) => record.source_storage_path), ...(serviceImports ?? []).map((item) => item.storage_path)].filter((path): path is string => Boolean(path)))];
   const { data: signedSources } = sourcePaths.length ? await supabase.storage.from("service-record-imports").createSignedUrls(sourcePaths, 3600) : { data: [] };
   const sourceUrls = new Map((signedSources ?? []).map((source) => [source.path, source.signedUrl]));
@@ -27,11 +34,12 @@ export default async function VehiclePage({ params, searchParams }: { params: Pr
   return <main className="dashboard-main">
     <Link className="back-link" href="/dashboard/vehicles">← Vehicles</Link>
     <section className="vehicle-detail-hero"><div><p className="eyebrow">{vehicle.business_id} · GARAGE FILE</p><h1>{vehicle.name}</h1><p>{[vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(" ") || "Vehicle details ready to complete."}</p></div><div className="vehicle-hero-actions"><div className="record-actions"><Link className="button dark" href={`/dashboard/vehicles/${id}/edit`}>Edit vehicle</Link><DeleteRecordButton action={deleteVehicle} fields={{ vehicle_id: id }} confirmMessage={`Delete ${vehicle.name}?${maintenanceCount ? ` This will also delete ${maintenanceCount} maintenance record${maintenanceCount === 1 ? "" : "s"} and ${maintenanceItemCount} detailed maintenance item${maintenanceItemCount === 1 ? "" : "s"}.` : ""} Its tires and pads will also be deleted. Vehicles assigned to events cannot be deleted.`} /></div><div className="vehicle-count"><strong>{eventCount ?? 0}</strong><span>Events</span></div></div></section>
-    {query.error && <p className="alert">That update could not be saved. Check the fields and try again.</p>}{query.deleted && <p className="success-message">Record deleted.</p>}
+    {query.error && <p className="alert">{query.error === "attachments" ? "Remove the vehicle or service record attachments before deleting their parent record." : "That update could not be saved. Check the fields and try again."}</p>}{query.deleted && <p className="success-message">Record deleted.</p>}
     <section className="vehicle-profile-summary"><div><span>Status</span><strong>{vehicle.status}</strong></div><div><span>Mileage</span><strong>{vehicle.current_odometer_miles != null ? vehicle.current_odometer_miles.toLocaleString() : "—"}</strong></div><div><span>Race number</span><strong>{vehicle.race_number ?? "—"}</strong></div><div><span>Class</span><strong>{vehicle.competition_class ?? "—"}</strong></div></section>
-    <section className="section-block"><div className="section-heading"><div><p className="eyebrow">MAINTENANCE HISTORY</p><h2>Service records</h2></div><div className="section-heading-actions"><span>{maintenance?.length ?? 0} logged</span><Link className="button outline" href={`/dashboard/vehicles/${id}/service/upload`}>Upload records</Link><Link className="button primary" href={`/dashboard/vehicles/${id}/service/new`}>+ Add service</Link></div></div>
+    <nav className="record-actions" aria-label="Vehicle sections"><Link className={`button ${query.tab !== "attachments" ? "primary" : "outline"}`} href={`/dashboard/vehicles/${id}`}>Service records</Link><Link className={`button ${query.tab === "attachments" ? "primary" : "outline"}`} href={`/dashboard/vehicles/${id}?tab=attachments`}>Attachments ({attachments?.length ?? 0})</Link></nav>
+    {query.tab === "attachments" ? <section className="section-block"><div className="section-heading"><div><p className="eyebrow">VEHICLE DOCUMENTS</p><h2>Attachments</h2></div>{canEdit && <Link className="button primary" href={`/dashboard/vehicles/${id}/attachments/new`}>+ Upload attachment</Link>}</div>{attachmentError ? <p className="alert">Attachments could not be loaded. Please try again.</p> : <VehicleAttachments workspaceId={vehicle.workspace_id} vehicleId={id} initialAttachments={attachments ?? []} canEdit={canEdit} />}</section> : <section className="section-block"><div className="section-heading"><div><p className="eyebrow">MAINTENANCE HISTORY</p><h2>Service records</h2></div><div className="section-heading-actions"><span>{maintenance?.length ?? 0} logged</span><Link className="button outline" href={`/dashboard/vehicles/${id}/service/upload`}>Upload records</Link><Link className="button primary" href={`/dashboard/vehicles/${id}/service/new`}>+ Add service</Link></div></div>
       <ServiceImportHistory vehicleId={id} imports={importsWithSources as never[]} />
       {maintenanceWithSources.length ? <ServiceRecords vehicleId={id} records={maintenanceWithSources} /> : <div className="empty-state"><strong>No maintenance logged.</strong><p>Add the first service record when work is completed.</p></div>}
-    </section>
+    </section>}
   </main>;
 }

@@ -61,6 +61,9 @@ export async function deleteVehicle(formData: FormData) {
   if (!membership || !vehicleId) redirect("/dashboard/vehicles");
   const { count } = await supabase.from("events").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId);
   if (count) redirect("/dashboard/vehicles?error=vehicle_in_use");
+  const { count: attachments, error: attachmentError } = await supabase.from("vehicle_attachments").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId);
+  if (attachmentError) redirect("/dashboard/vehicles?error=delete");
+  if (attachments) redirect(`/dashboard/vehicles/${vehicleId}?error=attachments`);
   const { data, error } = await supabase.from("vehicles").delete().eq("workspace_id", membership.workspace_id).eq("id", vehicleId).select("id").maybeSingle();
   if (error || !data) redirect("/dashboard/vehicles?error=delete");
   revalidatePath("/dashboard/vehicles");
@@ -184,6 +187,9 @@ export async function deleteMaintenanceRecord(formData: FormData) {
   const id = String(formData.get("maintenance_record_id") ?? "");
   const vehicleId = String(formData.get("vehicle_id") ?? "");
   if (!membership || !id || !vehicleId) redirect("/dashboard/vehicles");
+  const { count: attachments, error: attachmentError } = await supabase.from("vehicle_attachments").select("id", { count: "exact", head: true }).eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId).eq("maintenance_record_id", id);
+  if (attachmentError) redirect(`/dashboard/vehicles/${vehicleId}?error=delete-service`);
+  if (attachments) redirect(`/dashboard/vehicles/${vehicleId}?error=attachments`);
   const { data, error } = await supabase.from("maintenance_records").delete().eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId).eq("id", id).select("id").maybeSingle();
   if (error || !data) redirect(`/dashboard/vehicles/${vehicleId}?error=delete-service`);
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
