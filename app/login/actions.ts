@@ -6,10 +6,13 @@ import { createClient } from "@/lib/supabase/server";
 import { provisionWorkspace } from "@/lib/provision-workspace";
 
 export async function login(formData: FormData) {
+  const captchaToken = String(formData.get("cf-turnstile-response") ?? "").trim();
+  if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !captchaToken) redirect("/login?error=captcha");
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({
     email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? ""),
+    ...(captchaToken ? { options: { captchaToken } } : {}),
   });
   if (error) redirect(`/login?error=${error.message.toLowerCase().includes("confirm") ? "unconfirmed" : "invalid"}`);
   const { data: { user } } = await supabase.auth.getUser();
@@ -19,16 +22,6 @@ export async function login(formData: FormData) {
     catch { redirect("/login?error=workspace"); }
   }
   redirect(profile?.onboarding_complete ? "/dashboard" : "/new-user");
-}
-
-export async function signup(formData: FormData) {
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
-    email: String(formData.get("email") ?? ""),
-    password: String(formData.get("password") ?? ""),
-  });
-  if (error) redirect("/login?error=signup");
-  redirect("/login?message=check-email");
 }
 
 export async function registerNewUser(formData: FormData) {

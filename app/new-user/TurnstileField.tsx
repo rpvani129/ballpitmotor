@@ -46,6 +46,6 @@ export default function TurnstileField({ siteKey }: { siteKey: string }) {
     <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onLoad={renderWidget} />
     <input ref={tokenRef} type="hidden" name="cf-turnstile-response" />
     <div ref={containerRef} />
-    <small>Verification protects account confirmation email delivery from automated abuse.</small>
+    <small>Verification protects The Grid from automated abuse.</small>
   </div>;
 }
