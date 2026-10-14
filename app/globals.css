@@ -834,3 +834,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
   display: grid;
   gap: 0.45rem;
 }
+
+.vehicle-attachments .attachment-actions { flex-wrap: wrap; }
+.vehicle-attachments .attachment-card p, .vehicle-attachments .attachment-card small { overflow-wrap: anywhere; white-space: pre-wrap; }
