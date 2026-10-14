@@ -48,7 +48,7 @@ export default function VehicleAttachments({ workspaceId, vehicleId, recordId, i
   return <div className="attachment-manager vehicle-attachments">
     {uploadOnly && canEdit && <form className="stack-form" action={upload}>
       <label>File *<input type="file" name="file" accept={VEHICLE_ATTACHMENT_ACCEPT} required disabled={busy} /></label>
-      <p className="fine-print">PDF, JPG, PNG, WebP, HEIC, CSV, TXT, Word (.docx), or Excel (.xlsx). Maximum 25 MB.</p>
+      <p className="fine-print">PDF, JPG, PNG, WebP, HEIC, CSV, TXT, Word (.docx), Excel (.xlsx), or dyno backup (.wp8). Maximum 25 MB.</p>
       <label>Title *<input name="title" maxLength={160} required /></label>
       <label>Category<select name="category" defaultValue="Other">{VEHICLE_ATTACHMENT_CATEGORIES.map(category => <option key={category}>{category}</option>)}</select></label>
       <label>Notes<textarea name="notes" maxLength={2000} rows={3} /></label>
