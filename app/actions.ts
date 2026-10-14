@@ -7,6 +7,12 @@ import { eventBusinessId, parseLap } from "@/lib/grid";
 import { getEventWeather } from "@/lib/weather";
 import { provisionWorkspace } from "@/lib/provision-workspace";
 
+function refreshMaintenanceViews() {
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/maintenance", "layout");
+  revalidatePath("/dashboard/vehicles", "layout");
+}
+
 async function authContext() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -66,6 +72,7 @@ export async function deleteVehicle(formData: FormData) {
   if (attachments) redirect(`/dashboard/vehicles/${vehicleId}?error=attachments`);
   const { data, error } = await supabase.from("vehicles").delete().eq("workspace_id", membership.workspace_id).eq("id", vehicleId).select("id").maybeSingle();
   if (error || !data) redirect("/dashboard/vehicles?error=delete");
+  refreshMaintenanceViews();
   revalidatePath("/dashboard/vehicles");
   redirect("/dashboard/vehicles?deleted=vehicle");
 }
@@ -96,9 +103,11 @@ export async function createVehicle(formData: FormData) {
     business_id: businessId,
     status: String(formData.get("status") ?? "active"), year: numeric("year"), make: text("make"), model: text("model"), trim: text("trim"),
     race_number: text("race_number"), competition_class: text("competition_class"), description: text("description"), wiki_url: text("wiki_url"), image_url: text("image_url"),
-    current_odometer_miles: numeric("current_odometer_miles"), acquired_on: text("acquired_on"),
+    current_odometer_miles: numeric("current_odometer_miles"),
+    odometer_recorded_on: text("odometer_recorded_on"), acquired_on: text("acquired_on"),
   });
   if (error) redirect("/dashboard/vehicles/new?error=save");
+  refreshMaintenanceViews();
   revalidatePath("/dashboard/vehicles");
   redirect("/dashboard/vehicles");
 }
@@ -125,9 +134,11 @@ export async function updateVehicle(formData: FormData) {
     wiki_url: text("wiki_url"),
     image_url: text("image_url"),
     current_odometer_miles: optionalInteger("current_odometer_miles"),
+    odometer_recorded_on: text("odometer_recorded_on"),
     acquired_on: text("acquired_on"),
   }).eq("workspace_id", membership.workspace_id).eq("id", vehicleId);
   if (error) redirect(`/dashboard/vehicles/${vehicleId}/edit?error=vehicle`);
+  refreshMaintenanceViews();
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
   revalidatePath("/dashboard/vehicles");
   redirect("/dashboard/vehicles");
@@ -154,6 +165,7 @@ export async function addMaintenanceRecord(formData: FormData) {
     source_url: text("source_url"),
   });
   if (error) redirect(`/dashboard/vehicles/${vehicleId}?error=maintenance`);
+  refreshMaintenanceViews();
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
   redirect(`/dashboard/vehicles/${vehicleId}`);
 }
@@ -178,6 +190,7 @@ export async function updateMaintenanceRecord(formData: FormData) {
     source_url: text("source_url"),
   }).eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId).eq("id", id);
   if (error) redirect(`/dashboard/vehicles/${vehicleId}?error=maintenance`);
+  refreshMaintenanceViews();
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
   redirect(`/dashboard/vehicles/${vehicleId}`);
 }
@@ -192,6 +205,7 @@ export async function deleteMaintenanceRecord(formData: FormData) {
   if (attachments) redirect(`/dashboard/vehicles/${vehicleId}?error=attachments`);
   const { data, error } = await supabase.from("maintenance_records").delete().eq("workspace_id", membership.workspace_id).eq("vehicle_id", vehicleId).eq("id", id).select("id").maybeSingle();
   if (error || !data) redirect(`/dashboard/vehicles/${vehicleId}?error=delete-service`);
+  refreshMaintenanceViews();
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
   redirect(`/dashboard/vehicles/${vehicleId}?deleted=service`);
 }
@@ -280,6 +294,7 @@ export async function commitServiceRecordImport(formData: FormData) {
   if (!records.length || records.some((record) => record === null)) redirect(`/dashboard/vehicles/${vehicleId}/service/imports/${importId}?error=required`);
   const { error: commitError } = await supabase.rpc("commit_service_record_import_batch", { p_import_id: importId, p_vehicle_id: vehicleId, p_records: records });
   if (commitError) redirect(`/dashboard/vehicles/${vehicleId}/service/imports/${importId}?error=commit`);
+  refreshMaintenanceViews();
   revalidatePath(`/dashboard/vehicles/${vehicleId}`);
   redirect(`/dashboard/vehicles/${vehicleId}?imported=service`);
 }
@@ -561,6 +576,7 @@ export async function createEvent(formData: FormData) {
   };
   const { data: event, error } = await supabase.from("events").insert(payload).select("id").single();
   if (error || !event) redirect("/dashboard/events/new?error=create");
+  refreshMaintenanceViews();
   revalidatePath("/dashboard");
   redirect(`/dashboard/events/${event.id}`);
 }
@@ -581,7 +597,7 @@ export async function updateEvent(formData: FormData) {
   const teamId = String(formData.get("team_id") ?? "");
   const noId = "00000000-0000-0000-0000-000000000000";
   const [{ data: event }, { data: track }, { data: configuration }, { data: vehicle }, { data: tireSet }, { data: frontPadSet }, { data: rearPadSet }, { data: eventType }, { data: team }] = await Promise.all([
-    supabase.from("events").select("id,tire_set_id,front_pad_set_id,rear_pad_set_id").eq("workspace_id", membership.workspace_id).eq("id", eventId).single(),
+    supabase.from("events").select("id,vehicle_id,starting_odometer_miles,ending_odometer_miles,tire_set_id,front_pad_set_id,rear_pad_set_id").eq("workspace_id", membership.workspace_id).eq("id", eventId).single(),
     supabase.from("tracks").select("id,name,latitude,longitude").eq("workspace_id", membership.workspace_id).eq("id", trackId).single(),
     supabase.from("track_configurations").select("id,name,track_id").eq("workspace_id", membership.workspace_id).eq("id", configurationId).eq("track_id", trackId).single(),
     supabase.from("vehicles").select("id,name").eq("workspace_id", membership.workspace_id).eq("id", vehicleId).single(),
@@ -600,6 +616,7 @@ export async function updateEvent(formData: FormData) {
   if (!event || !track || !configuration || !vehicle || !date || !eventName || invalidConsumables) {
     redirect(`/dashboard/events/${eventId}/edit?error=required`);
   }
+  if (event.vehicle_id !== vehicleId && (event.starting_odometer_miles != null || event.ending_odometer_miles != null)) redirect(`/dashboard/events/${eventId}/edit?error=mileage_vehicle`);
   const weather = track.latitude != null && track.longitude != null ? await getEventWeather(date, track.latitude, track.longitude) : null;
   const { error } = await supabase.from("events").update({
     event_date: date,
@@ -625,6 +642,7 @@ export async function updateEvent(formData: FormData) {
     ...(weather ?? {}),
   }).eq("workspace_id", membership.workspace_id).eq("id", eventId);
   if (error) redirect(`/dashboard/events/${eventId}/edit?error=save`);
+  refreshMaintenanceViews();
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/events/${eventId}`);
   redirect(`/dashboard/events/${eventId}`);
@@ -642,6 +660,7 @@ export async function deleteEvent(formData: FormData) {
   if (error || !data) redirect(`/dashboard/events/${eventId}?error=delete`);
   const paths = [...(eventFiles ?? []), ...(checklistFiles ?? [])].map((file) => file.storage_path);
   if (paths.length) await supabase.storage.from("event-attachments").remove(paths);
+  refreshMaintenanceViews();
   revalidatePath("/dashboard");
   redirect("/dashboard?deleted=event");
 }
@@ -815,6 +834,7 @@ export async function addSession(formData: FormData) {
   }));
   const { error } = await supabase.from("sessions").insert(sessions);
   if (error) redirect(`/dashboard/events/${eventId}/sessions/new?error=session`);
+  refreshMaintenanceViews();
   revalidatePath(`/dashboard/events/${eventId}`);
   revalidatePath("/dashboard/consumables");
   revalidatePath("/dashboard/reports");
@@ -838,6 +858,7 @@ export async function updateSession(formData: FormData) {
     notes: String(formData.get("notes") ?? "").trim() || null,
   }).eq("workspace_id", membership.workspace_id).eq("event_id", eventId).eq("id", sessionId);
   if (error) redirect(`/dashboard/events/${eventId}/sessions/${sessionId}/edit?error=session`);
+  refreshMaintenanceViews();
   revalidatePath(`/dashboard/events/${eventId}`);
   redirect(`/dashboard/events/${eventId}?tab=sessions`);
 }
@@ -849,6 +870,7 @@ export async function deleteSession(formData: FormData) {
   if (!membership || !eventId || !sessionId) redirect("/dashboard");
   const { data, error } = await supabase.from("sessions").delete().eq("workspace_id", membership.workspace_id).eq("event_id", eventId).eq("id", sessionId).select("id").maybeSingle();
   if (error || !data) redirect(`/dashboard/events/${eventId}?tab=sessions&error=delete-session`);
+  refreshMaintenanceViews();
   revalidatePath(`/dashboard/events/${eventId}`);
   revalidatePath("/dashboard");
   redirect(`/dashboard/events/${eventId}?tab=sessions&deleted=session`);
@@ -871,6 +893,7 @@ export async function commitGarminSessionImport(formData: FormData) {
   if (!sessions.length || sessions.some((session) => session === null) || new Set(numbers).size !== numbers.length) redirect(`/dashboard/events/${eventId}/sessions/import/${importId}?error=required`);
   const { error } = await supabase.rpc("commit_session_import", { p_import_id: importId, p_event_id: eventId, p_sessions: sessions });
   if (error) redirect(`/dashboard/events/${eventId}/sessions/import/${importId}?error=commit`);
+  refreshMaintenanceViews();
   revalidatePath(`/dashboard/events/${eventId}`); revalidatePath("/dashboard"); revalidatePath("/dashboard/reports");
   redirect(`/dashboard/events/${eventId}?tab=sessions&imported=garmin`);
 }

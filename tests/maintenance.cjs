@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm'),ts=require('typescript'),assert=require('node:assert/strict');
+const m={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/maintenance.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:m.exports,Date,Intl});
+const {addMonths,reminderStatus,latestMileage,todayChicago}=m.exports;
+const base={state:'active',interval_months:null,interval_miles:null,interval_sessions:null,baseline_date:null,baseline_miles:null,baseline_sessions:null,warning_days:30,warning_miles:500,warning_sessions:2};const usage={mileage:10000,sessions:10};
+const status=(r,u=usage)=>reminderStatus({...base,...r},u,'2026-10-14').status;
+assert.equal(addMonths('2026-01-31',1),'2026-02-28');assert.equal(addMonths('2024-01-31',1),'2024-02-29');assert.equal(addMonths('2026-12-31',2),'2027-02-28');
+assert.equal(status({interval_months:6,baseline_date:'2026-04-14'}),'Overdue');assert.equal(status({interval_months:6,baseline_date:'2026-05-01'}),'Due Soon');assert.equal(status({interval_months:6,baseline_date:'2026-09-01'}),'Current');
+assert.equal(status({interval_miles:1000,baseline_miles:9000}),'Overdue');assert.equal(status({interval_miles:1000,baseline_miles:9500}),'Due Soon');assert.equal(status({interval_miles:1000,baseline_miles:10000}),'Current');
+assert.equal(status({interval_sessions:10,baseline_sessions:0}),'Overdue');assert.equal(status({interval_sessions:10,baseline_sessions:2}),'Due Soon');assert.equal(status({interval_sessions:10,baseline_sessions:10}),'Current');
+assert.equal(status({interval_sessions:10}),'Needs Baseline');assert.equal(status({interval_miles:1000,baseline_miles:0},{mileage:null,sessions:0}),'Needs Baseline');
+assert.equal(status({interval_months:6,baseline_date:'2026-09-01',interval_sessions:10,baseline_sessions:0}),'Overdue');
+assert.equal(status({state:'paused',interval_sessions:10,baseline_sessions:0}),'Paused');assert.equal(status({state:'archived',interval_sessions:10,baseline_sessions:0}),'Archived');
+assert.equal(status({interval_miles:1000,baseline_miles:0,warning_miles:0},{mileage:999,sessions:0}),'Current');
+const result=latestMileage([{date:'2026-10-01',miles:20000,priority:1},{date:'2026-10-10',miles:20100,priority:1},{date:'2026-10-09',miles:99999,priority:1},{date:'2026-11-01',miles:999999,priority:1}],null,'2026-10-14');assert.equal(result.mileage,20100);
+assert.equal(latestMileage([{date:'2026-10-10',miles:10000,priority:4},{date:'2026-10-10',miles:10200,priority:2}],null,'2026-10-14').mileage,10200);
+assert.equal(todayChicago(new Date('2026-10-14T02:00:00Z')),'2026-10-13');
+console.log('21 maintenance date/mileage/session boundary, combined rule, missing baseline, pause/archive, history and timezone checks passed.');
