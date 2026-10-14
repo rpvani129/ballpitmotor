@@ -21,7 +21,7 @@ export default async function EditEventPage({ params, searchParams }: { params: 
     <main className="dashboard-main">
       <Link className="back-link" href={`/dashboard/events/${id}`}>← Back to event</Link>
       <section className="page-title"><p className="eyebrow">{event.business_id}</p><h1>Edit event</h1><p>Update the event record and reassign the tires or brake pads used for the day.</p></section>
-      {query.error && <p className="alert">{query.error === "mileage_vehicle" ? "Clear mileage readings in Notes before assigning a different vehicle." : "The event could not be saved. Review the required fields and consumable assignments."}</p>}
+      {query.error && <p className="alert">{query.error === "mileage_vehicle" ? "Clear readings in the Mileage tab before assigning a different vehicle." : "The event could not be saved. Review the required fields and consumable assignments."}</p>}
       <EditEventForm event={event} vehicles={vehicles ?? []} tracks={tracks ?? []} tires={tires ?? []} pads={pads ?? []} eventTypes={eventTypes ?? []} teams={teams ?? []} />
     </main>
   );
