@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { login } from "./actions";
+import TurnstileField from "../new-user/TurnstileField";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const query = await searchParams;
@@ -17,11 +18,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <p className="eyebrow">PRIVATE MVP</p>
           <h2>Get on grid.</h2>
           <p className="muted">Sign in to the Ball Pit Motorsports workspace.</p>
-          {query.error && <p className="alert">{query.error === "unconfirmed" ? "Your email has not been confirmed. Check your email for the confirmation link." : query.error === "workspace" ? "Your login worked, but your workspace could not be prepared. Please try again." : "That did not work. Check your email and password, then try again."}</p>}
+          {query.error && <p className="alert">{query.error === "captcha" ? "Complete verification and try again." : query.error === "unconfirmed" ? "Your email has not been confirmed. Check your email for the confirmation link." : query.error === "workspace" ? "Your login worked, but your workspace could not be prepared. Please try again." : "That did not work. Check your email and password, then try again."}</p>}
           {query.message && <p className="success">Check your email to confirm your account.</p>}
           <form className="stack-form">
             <label>Email<input name="email" type="email" autoComplete="email" required /></label>
             <label>Password<input name="password" type="password" autoComplete="current-password" minLength={8} required /></label>
+            {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && <TurnstileField siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY} />}
             <button className="button primary" formAction={login}>Log in</button>
             {signupEnabled ? <Link className="button ghost" href="/new-user">Create new user</Link> : <p className="fine-print">New account registration is temporarily paused. Existing users can still log in.</p>}
           </form>
