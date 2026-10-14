@@ -12,6 +12,7 @@ const primaryLinks = [
 ];
 
 const moreLinks = [
+  { href: "/dashboard/maintenance", label: "Maintenance", detail: "Service schedules and reminders" },
   { href: "/dashboard/tracks", label: "Tracks", detail: "Locations and configurations" },
   { href: "/dashboard/checklists", label: "Checklists", detail: "Templates and event preparation" },
   { href: "/dashboard/reports", label: "Reports", detail: "Performance and equipment life" },

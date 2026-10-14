@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createBallPitWorkspace, updateFirstTimeSettings } from "@/app/actions";
 import { createClient } from "@/lib/supabase/server";
+import MaintenanceSummary from "./maintenance/MaintenanceSummary";
 import EventIndex from "./EventIndex";
 import EventShareDialog from "./EventShareDialog";
 import FirstTimeDialog from "./FirstTimeDialog";
@@ -93,6 +94,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <div className="stat-card accent"><strong>{upcoming}</strong><span>Upcoming</span></div>
       </section>
 
+      <MaintenanceSummary workspaceId={membership.workspace_id}/>
       <section className="section-block">
         <div className="section-heading">
           <div><p className="eyebrow">EVENT INDEX</p><h2>All events</h2></div>

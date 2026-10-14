@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { deleteEvent } from "@/app/actions";
 import { formatLap } from "@/lib/grid";
 import { createClient } from "@/lib/supabase/server";
+import EventMileage from "./EventMileage";
 import ChecklistEditor from "./ChecklistEditor";
 import AttachmentManager from "./AttachmentManager";
 import DeleteRecordButton from "../../DeleteRecordButton";
@@ -30,6 +31,9 @@ type Event = {
   tire_sets: { business_id: string; manufacturer: string; model: string; size: string | null; compound: string | null } | null;
   front_pad_sets: { business_id: string; manufacturer: string; model: string; compound: string | null } | null;
   rear_pad_sets: { business_id: string; manufacturer: string; model: string; compound: string | null } | null;
+  starting_odometer_miles: number | null;
+  ending_odometer_miles: number | null;
+  status: string;
   notes: string | null;
   vehicle_id: string | null;
   vehicles: { name: string } | null;
@@ -71,6 +75,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
     supabase.auth.getUser(),
   ]);
   if (!rawEvent) notFound();
+  const { data: member } = await supabase.from("memberships").select("role").eq("workspace_id", rawEvent.workspace_id).eq("user_id", authData.user?.id ?? "").eq("status", "active").maybeSingle();
+  const canEditMileage = Boolean(member && ["owner", "admin", "editor"].includes(member.role));
   const event = rawEvent as unknown as Event;
   const sessions = (rawSessions ?? []) as Session[];
   const checklistRuns = (rawRuns ?? []) as unknown as ChecklistRun[];
@@ -105,7 +111,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         <div className="event-hero-actions"><div className="record-actions"><Link className="button dark" href={`/dashboard/events/${event.id}/edit`}>Edit event</Link><DeleteRecordButton action={deleteEvent} fields={{ event_id: event.id }} confirmMessage={`Delete ${event.business_id} — ${event.event_name}? This permanently removes its sessions, checklist, notes, and attachments.`} /></div><div className="date-block"><strong>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}</strong><span>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span></div></div>
       </section>
 
-      {query.error && <p className="alert">That record could not be saved or deleted. Check the fields and try again.</p>}{query.deleted && <p className="success-message">Session deleted.</p>}{query.imported === "garmin" && <p className="success-message">Garmin sessions imported.</p>}
+      {query.error && <p className="alert">{query.error === "mileage" ? "Enter non-negative whole-number mileage. Ending mileage must be at least starting mileage." : "That record could not be saved or deleted. Check the fields and try again."}</p>}{query.deleted && <p className="success-message">Session deleted.</p>}{query.imported === "garmin" && <p className="success-message">Garmin sessions imported.</p>}
 
       <section className="event-facts">
         <div><span>Vehicle</span><strong>{event.vehicles?.name ?? "—"}</strong></div>
@@ -117,8 +123,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
 
       <nav className="record-tabs" aria-label="Event sections">
         <Link className={activeTab === "sessions" ? "active" : ""} href={`/dashboard/events/${id}?tab=sessions`}>Sessions <span>{sessions.length}</span></Link>
-        <Link className={activeTab === "checklist" ? "active" : ""} href={`/dashboard/events/${id}?tab=checklist`}>Checklists <span>{checklistRuns.length}</span></Link>
         <Link className={activeTab === "notes" ? "active" : ""} href={`/dashboard/events/${id}?tab=notes`}>Notes <span>{notes.length}</span></Link>
+        <Link className={activeTab === "checklist" ? "active" : ""} href={`/dashboard/events/${id}?tab=checklist`}>Checklists <span>{checklistRuns.length}</span></Link>
         <Link className={activeTab === "attachments" ? "active" : ""} href={`/dashboard/events/${id}?tab=attachments`}>Attachments <span>{attachments.length}</span></Link>
       </nav>
 
@@ -149,7 +155,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         {run && <section className="selected-checklist"><div className="section-heading compact-heading"><div><p className="eyebrow">ACTIVE CHECKLIST</p><h2>{run.checklist_templates?.name ?? "Event checklist"}</h2></div><span className={`status-pill ${run.status}`}>{run.status}</span></div><ChecklistEditor workspaceId={rawEvent.workspace_id} eventId={event.id} runId={run.id} initialItems={checklistItems} initialAttachments={checklistAttachments} /></section>}
       </section>}
 
-      {activeTab === "notes" && <section className="section-block tab-panel"><div className="section-heading"><div><p className="eyebrow">EVENT JOURNAL</p><h2>Notes</h2></div><div className="section-heading-actions"><span>{notes.length} entries</span><Link className="button primary" href={`/dashboard/events/${event.id}/notes/new`}>+ Add note</Link></div></div>{notes.length ? <div className="event-note-list">{notes.map((note) => { const created = new Date(note.created_at); const edited = note.updated_at !== note.created_at; const author = note.created_by === authData.user?.id ? "You" : authorNames.get(note.created_by) ?? "Workspace member"; return <Link className="event-note-card" href={`/dashboard/events/${event.id}/notes/${note.id}/edit`} key={note.id}><div className="event-note-meta"><span>{note.category}</span><time dateTime={note.created_at}>{created.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {created.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</time></div><p>{note.body}</p><small>{author}{edited ? " · Edited" : ""} · Edit →</small></Link>; })}</div> : <div className="empty-state"><strong>No event notes yet.</strong><p>Add plans, setup decisions, observations, incidents, results, or follow-up.</p></div>}</section>}
+      {activeTab === "notes" && <section className="section-block tab-panel"><div className="section-heading"><div><p className="eyebrow">EVENT JOURNAL</p><h2>Notes</h2></div><div className="section-heading-actions"><span>{notes.length} entries</span><Link className="button primary" href={`/dashboard/events/${event.id}/notes/new`}>+ Add note</Link></div></div>{query.saved === "mileage" && <p className="success-message">Mileage saved.</p>}<EventMileage eventId={id} start={event.starting_odometer_miles} end={event.ending_odometer_miles} canEdit={canEditMileage} status={event.status}/>{notes.length ? <div className="event-note-list">{notes.map((note) => { const created = new Date(note.created_at); const edited = note.updated_at !== note.created_at; const author = note.created_by === authData.user?.id ? "You" : authorNames.get(note.created_by) ?? "Workspace member"; return <Link className="event-note-card" href={`/dashboard/events/${event.id}/notes/${note.id}/edit`} key={note.id}><div className="event-note-meta"><span>{note.category}</span><time dateTime={note.created_at}>{created.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {created.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</time></div><p>{note.body}</p><small>{author}{edited ? " · Edited" : ""} · Edit →</small></Link>; })}</div> : <div className="empty-state"><strong>No event notes yet.</strong><p>Add plans, setup decisions, observations, incidents, results, or follow-up.</p></div>}</section>}
 
       {activeTab === "attachments" && <section className="section-block tab-panel"><div className="section-heading"><div><p className="eyebrow">EVENT FILES</p><h2>Attachments</h2></div><span>{attachments.length} files</span></div><AttachmentManager workspaceId={rawEvent.workspace_id} eventId={event.id} initialAttachments={attachments} /></section>}
     </main>

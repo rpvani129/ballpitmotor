@@ -1,0 +1,5 @@
+import Link from 'next/link';
+import {notFound} from 'next/navigation';
+import {maintenanceData} from '@/lib/maintenance-data';
+import CompleteForm from '../../CompleteForm';
+export default async function CompletionPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<Record<string,string>>}){const {id}=await params;const q=await searchParams;const d=await maintenanceData();const rule=d.rules.find(r=>r.id===id);if(!rule)notFound();return <main className="dashboard-main"><Link className="back-link" href={`/dashboard/maintenance/${id}`}>← Reminder</Link><h1>Complete service</h1><p>{rule.name} · {d.vehicles.find(v=>v.id===rule.vehicle_id)?.name}</p>{q.error&&<p className="alert">Completion could not be saved. Use a date on or after the baseline and no later than today, valid mileage, and a service record from this vehicle. Reload if the reminder changed.</p>}{rule.state==='active'?<CompleteForm rule={rule} usage={d.usage.get(rule.vehicle_id)!} today={d.today} records={d.records.filter(r=>r.vehicle_id===rule.vehicle_id)}/>:<p>Resume this reminder before completing it.</p>}</main>;}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type Vehicle = { id: string; business_id: string; name: string; status: string; year: number | null; make: string | null; model: string | null; trim: string | null; race_number: string | null; competition_class: string | null; description: string | null; wiki_url: string | null; image_url: string | null; current_odometer_miles: number | null; acquired_on: string | null; };
+type Vehicle = { id: string; business_id: string; name: string; status: string; year: number | null; make: string | null; model: string | null; trim: string | null; race_number: string | null; competition_class: string | null; description: string | null; wiki_url: string | null; image_url: string | null; current_odometer_miles: number | null; odometer_recorded_on?: string | null; acquired_on: string | null; };
 
 export default function VehicleForm({ vehicle, action }: { vehicle?: Vehicle; action: (formData: FormData) => void | Promise<void> }) {
   const cancelHref = "/dashboard/vehicles";
@@ -17,7 +17,7 @@ export default function VehicleForm({ vehicle, action }: { vehicle?: Vehicle; ac
     </section>
     <section className="form-section">
       <div className="form-section-number">02</div><div className="form-section-copy"><p className="eyebrow">DETAILS</p><h2>History</h2></div>
-      <div className="form-grid"><label>Current mileage<input name="current_odometer_miles" type="number" min="0" defaultValue={vehicle?.current_odometer_miles ?? ""} /></label><label>Acquired<input name="acquired_on" type="date" defaultValue={vehicle?.acquired_on ?? ""} /></label><label className="span-2">Ball Wiki URL<input name="wiki_url" type="url" defaultValue={vehicle?.wiki_url ?? ""} /></label><label className="span-2">Image URL<input name="image_url" type="url" defaultValue={vehicle?.image_url ?? ""} /></label><label className="span-2">Description<textarea name="description" rows={5} defaultValue={vehicle?.description ?? ""} /></label></div>
+      <div className="form-grid"><label>Current mileage<input name="current_odometer_miles" type="number" min="0" defaultValue={vehicle?.current_odometer_miles ?? ""} /></label><label>Mileage recorded on<input name="odometer_recorded_on" type="date" defaultValue={vehicle?.odometer_recorded_on ?? ""}/></label><label>Acquired<input name="acquired_on" type="date" defaultValue={vehicle?.acquired_on ?? ""} /></label><label className="span-2">Ball Wiki URL<input name="wiki_url" type="url" defaultValue={vehicle?.wiki_url ?? ""} /></label><label className="span-2">Image URL<input name="image_url" type="url" defaultValue={vehicle?.image_url ?? ""} /></label><label className="span-2">Description<textarea name="description" rows={5} defaultValue={vehicle?.description ?? ""} /></label></div>
     </section>
     <div className="form-submit"><Link className="button ghost light" href={cancelHref}>Cancel</Link><button className="button primary large">{vehicle ? "Save vehicle" : "Add vehicle"}</button></div>
   </form>;
