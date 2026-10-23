@@ -15,4 +15,11 @@ export function reminderStatus(rule:MaintenanceRule,usage:Usage,today=todayChica
  if(rule.state==='archived')status='Archived';else if(rule.state==='paused')status='Paused';else if(due.some(x=>x.remaining!=null&&x.remaining<=0))status='Overdue';else if(due.some(x=>x.remaining!=null&&x.remaining<=x.warning))status='Due Soon';else if(due.some(x=>x.remaining==null))status='Needs Baseline';
  return {status,due,missing:due.some(x=>x.remaining==null)};
 }
-export function latestMileage(readings:MileageReading[], fallback:number|null=null,today=todayChicago()) { const sorted=readings.filter(r=>r.date<=today).sort((a,b)=>b.date.localeCompare(a.date)||b.miles-a.miles||b.priority-a.priority);return {mileage:sorted[0]?.miles??fallback,mileageDate:sorted[0]?.date??null,readings:sorted}; }
+// Current mileage is the highest valid, non-future reading, not the latest entry date.
+export function latestMileage(readings:MileageReading[], fallback:number|null=null,today=todayChicago()) {
+ const valid=(miles:number)=>Number.isSafeInteger(miles)&&miles>=0;
+ const sorted=readings.filter(r=>r.date<=today&&valid(r.miles)).sort((a,b)=>b.miles-a.miles||b.date.localeCompare(a.date)||b.priority-a.priority);
+ const manual=fallback!=null&&valid(fallback)?fallback:null;
+ const winner=sorted[0];
+ return {mileage:Math.max(winner?.miles??-1,manual??-1)<0?null:Math.max(winner?.miles??-1,manual??-1),mileageDate:winner&&(manual==null||winner.miles>=manual)?winner.date:null,readings:sorted};
+}
