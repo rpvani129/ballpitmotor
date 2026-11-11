@@ -866,3 +866,5 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
 
 .discover-shortlist-tabs { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
 .button.interested-selected { background:#fff2cf; border:1px solid #aa811a; color:#654800; }
+
+.going-flag { background:#e3f3e8; color:#175b32; border:1px solid #75a487; cursor:default; }
