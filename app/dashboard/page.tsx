@@ -84,7 +84,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <p className="eyebrow">BALL PIT WORKSPACE</p>
           <h1>Track life.<br />Handled.</h1>
         </div>
-        <div className="hero-actions"><EventShareDialog workspaceSlug={userProfile!.public_slug} publicEnabled={eventSettings?.show_public_events ?? false} events={rows} /><Link className="button ghost" href="/dashboard/settings/events">Event settings</Link><Link className="button primary" href="/dashboard/events/new">Create event</Link></div>
+        <div className="hero-actions"><Link className="button ghost" href="/dashboard/discover">Discover Events</Link><EventShareDialog workspaceSlug={userProfile!.public_slug} publicEnabled={eventSettings?.show_public_events ?? false} events={rows} /><Link className="button ghost" href="/dashboard/settings/events">Event settings</Link><Link className="button primary" href="/dashboard/events/new">Create event</Link></div>
       </section>
 
       <section className="stat-grid" aria-label="Workspace summary">

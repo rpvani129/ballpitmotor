@@ -83,7 +83,7 @@ export default function EventIndex({ events, initialTireSetId = "", initialPadSe
           const bestLap = fastestLap(event);
           return <Link className="event-table-row" role="row" href={`/dashboard/events/${event.id}`} key={event.id}>
             <time>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</time>
-            <div><strong>{event.event_name}</strong><span>{event.business_id} · {event.organization_name || "Independent"}</span></div>
+            <div><strong>{event.event_name}</strong><span>{event.business_id} · {event.organization_name || "Independent"}{event.status === "planned" && !event.sessions.length ? " · Planned" : ""}</span></div>
             <span>{event.vehicles?.name ?? "—"}</span>
             <div><strong>{event.track_name}</strong><span>{event.configuration_name}</span></div>
             <b className={bestLap != null ? "lap-value" : "lap-value empty"}>{formatLap(bestLap)}</b>
