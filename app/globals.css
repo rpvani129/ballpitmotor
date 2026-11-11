@@ -863,3 +863,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
 .clone-setup > summary { padding:16px; cursor:pointer; font-weight:700; background:#fff; border:1px solid #ddd; }
 .clone-setup .form-section { margin-top:16px; }
 @media (min-width:900px) { .discover-card { grid-template-columns:minmax(0,1fr) auto; align-items:center; } .discover-card .record-actions { max-width:260px; } }
+
+.discover-shortlist-tabs { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+.button.interested-selected { background:#fff2cf; border:1px solid #aa811a; color:#654800; }
