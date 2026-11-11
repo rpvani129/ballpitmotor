@@ -1,5 +1,8 @@
 "use server";
 
+import { createHash } from "node:crypto";
+import { driveSourceId, driveSourceUrl, validEventDate } from "@/lib/event-planning";
+import { getDriveEvents } from "@/lib/drive-ntx";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -502,9 +505,32 @@ export async function deleteTrackConfiguration(formData: FormData) {
 
 export async function createEvent(formData: FormData) {
   const { supabase, user, membership } = await authContext();
-  if (!membership) redirect("/dashboard");
+  if (!membership || !["owner","admin","editor"].includes(membership.role)) redirect("/dashboard?error=access");
+  const cloneId = String(formData.get("clone_from_event_id") || "");
+  const discoverId = String(formData.get("drive_ntx_event_id") || "");
+  const formQuery = new URLSearchParams(cloneId ? {clone:cloneId} : discoverId ? {discover:discoverId} : {});
+  function fail(error:string):never { const query = new URLSearchParams(formQuery); query.set("error",error); redirect(`/dashboard/events/new?${query}`); }
+  if (cloneId && discoverId) fail("source");
+  const {data:clone} = cloneId ? await supabase.from("events").select("id,event_date,source_url,team_id,team_name,event_type_id,event_type").eq("workspace_id",membership.workspace_id).eq("id",cloneId).maybeSingle() : {data:null};
+  if (cloneId && !clone) fail("source");
+  const discovery = discoverId ? (await getDriveEvents()).events.find(event=>event.id===discoverId) : null;
+  if (discoverId && !discovery) fail("source");
   const vehicleId = String(formData.get("vehicle_id") ?? "");
   const date = String(formData.get("event_date") ?? "");
+  if (!validEventDate(date)) fail("required");
+  if (clone && date === clone.event_date) fail("same_date");
+  if (discovery && date !== discovery.start_at.slice(0,10)) fail("source");
+  const sourceId = discovery?.id || driveSourceId(clone?.source_url);
+  const sourceUrl = sourceId ? driveSourceUrl(sourceId) : null;
+  // One calendar selection per workspace/day; cloning keeps the source link.
+  if (sourceUrl) {
+    const {data:existing} = await supabase.from("events").select("id").eq("workspace_id",membership.workspace_id).eq("source_url",sourceUrl).eq("event_date",date).limit(1).maybeSingle();
+    if (existing) redirect(`/dashboard/events/${existing.id}`);
+  }
+  // Stable UUID makes double submits/retries idempotent without a schema change.
+  const identity = sourceId ? `drive:${sourceId}:${date}` : clone ? `clone:${clone.id}:${date}:${vehicleId}` : null;
+  const hash = identity ? createHash("sha256").update(`${membership.workspace_id}:${identity}`).digest("hex") : null;
+  const newId = hash ? `${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-a${hash.slice(17,20)}-${hash.slice(20,32)}` : null;
   const trackId = String(formData.get("track_id") ?? "");
   const configurationId = String(formData.get("configuration_id") ?? "");
   const eventName = String(formData.get("event_name") ?? "").trim();
@@ -536,9 +562,9 @@ export async function createEvent(formData: FormData) {
     (eventTypeId && !eventType) ||
     (teamId && !team);
   if (!date || !eventName || !vehicleId || !trackId || !configurationId) {
-    redirect("/dashboard/events/new?error=required");
+    fail("required");
   }
-  if (!track || !configuration || !vehicle || invalidConsumables) redirect("/dashboard/events/new?error=selection");
+  if (!track || !configuration || !vehicle || invalidConsumables) fail("selection");
 
   const weather = track.latitude != null && track.longitude != null ? await getEventWeather(date, track.latitude, track.longitude) : null;
   const businessIdPrefix = eventBusinessId(vehicle.name, date).slice(0, -2);
@@ -549,7 +575,10 @@ export async function createEvent(formData: FormData) {
     .like("business_id", `${businessIdPrefix}%`);
   const businessId = eventBusinessId(vehicle.name, date, (sameDayCount ?? 0) + 1);
   const payload = {
+    ...(newId ? {id:newId} : {}),
     workspace_id: membership.workspace_id,
+    status: "planned",
+    ...(sourceUrl ? {source_url:sourceUrl} : {}),
     business_id: businessId,
     event_date: date,
     event_name: eventName,
@@ -559,9 +588,9 @@ export async function createEvent(formData: FormData) {
     configuration_id: configuration.id,
     organization_name: String(formData.get("organization_name") ?? "").trim() || null,
     event_type_id: eventType?.id ?? null,
-    event_type: eventType?.name ?? null,
+    event_type: eventType?.name ?? (!clone?.event_type_id ? clone?.event_type : null) ?? null,
     team_id: team?.id ?? null,
-    team_name: team?.name ?? null,
+    team_name: team?.name ?? (!clone?.team_id ? clone?.team_name : null) ?? null,
     driver_name: String(formData.get("driver_name") ?? "").trim() || null,
     vehicle_id: vehicle.id,
     tire_set_id: tireSet?.id ?? null,
@@ -575,10 +604,14 @@ export async function createEvent(formData: FormData) {
     ...(weather ?? {}),
   };
   const { data: event, error } = await supabase.from("events").insert(payload).select("id").single();
-  if (error || !event) redirect("/dashboard/events/new?error=create");
+  if (error?.code === "23505" && newId) {
+    const {data:existing} = await supabase.from("events").select("id").eq("workspace_id",membership.workspace_id).eq("id",newId).maybeSingle();
+    if (existing) redirect(`/dashboard/events/${existing.id}`);
+  }
+  if (error || !event) fail("create");
   refreshMaintenanceViews();
   revalidatePath("/dashboard");
-  redirect(`/dashboard/events/${event.id}`);
+  redirect(`/dashboard/events/${event.id}${clone ? "?cloned=1" : ""}`);
 }
 
 export async function updateEvent(formData: FormData) {

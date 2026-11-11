@@ -19,6 +19,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </Link>
         <nav className="desktop-navigation" aria-label="Primary navigation">
           <Link href="/dashboard">Events</Link>
+          <Link href="/dashboard/discover">Discover Events</Link>
           <Link href="/dashboard/vehicles">Vehicles</Link>
           <Link href="/dashboard/consumables">Tires + pads</Link>
           <Link href="/dashboard/maintenance">Maintenance</Link>

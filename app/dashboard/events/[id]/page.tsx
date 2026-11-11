@@ -1,3 +1,5 @@
+import { driveSourceId } from "@/lib/event-planning";
+import { getDriveEvents, safeDriveLink } from "@/lib/drive-ntx";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteEvent } from "@/app/actions";
@@ -35,6 +37,7 @@ type Event = {
   ending_odometer_miles: number | null;
   status: string;
   notes: string | null;
+  source_url: string | null;
   vehicle_id: string | null;
   vehicles: { name: string } | null;
 };
@@ -99,6 +102,11 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const requestedTab = query.tab ?? "sessions";
   const activeTab = ["sessions", "mileage", "notes", "checklist", "attachments"].includes(requestedTab) ? requestedTab : "sessions";
 
+  const driveId = driveSourceId(event.source_url);
+  const calendarEvent = driveId ? (await getDriveEvents()).events.find(item=>item.id===driveId) : null;
+  const registrationUrl = safeDriveLink(calendarEvent?.registration_url || null);
+  const scheduleChanged = calendarEvent && (event.event_date < calendarEvent.start_at.slice(0,10) || event.event_date > (calendarEvent.end_at || calendarEvent.start_at).slice(0,10));
+
   return (
     <main className="dashboard-main">
       <Link className="back-link" href="/dashboard">← Event Index</Link>
@@ -108,11 +116,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           <h1>{event.event_name}</h1>
           <p className="event-location">{event.track_name} · {event.configuration_name}</p>
         </div>
-        <div className="event-hero-actions"><div className="record-actions"><Link className="button dark" href={`/dashboard/events/${event.id}/edit`}>Edit event</Link><DeleteRecordButton action={deleteEvent} fields={{ event_id: event.id }} confirmMessage={`Delete ${event.business_id} — ${event.event_name}? This permanently removes its sessions, checklist, notes, and attachments.`} /></div><div className="date-block"><strong>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}</strong><span>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span></div></div>
+        <div className="event-hero-actions"><div className="record-actions">{canEditMileage && <Link className="button ghost" href={`/dashboard/events/new?clone=${event.id}`}>Clone event</Link>}<Link className="button dark" href={`/dashboard/events/${event.id}/edit`}>Edit event</Link><DeleteRecordButton action={deleteEvent} fields={{ event_id: event.id }} confirmMessage={`Delete ${event.business_id} — ${event.event_name}? This permanently removes its sessions, checklist, notes, and attachments.`} /></div><div className="date-block"><strong>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { day: "2-digit" })}</strong><span>{new Date(`${event.event_date}T12:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span></div></div>
       </section>
 
       {query.error && <p className="alert">{query.error === "mileage" ? "Enter non-negative whole-number mileage. Ending mileage must be at least starting mileage." : "That record could not be saved or deleted. Check the fields and try again."}</p>}{query.deleted && <p className="success-message">Session deleted.</p>}{query.imported === "garmin" && <p className="success-message">Garmin sessions imported.</p>}
 
+      {driveId && <section className="planning-source"><p><strong>Planned from Drive NTX</strong> · {calendarEvent ? registrationUrl ? "Registration link available" : "Registration link pending" : "Source listing unavailable; your plan is saved."}</p>{scheduleChanged && <p className="alert">The published schedule differs from your planned date. Review the source before updating your event.</p>}<div className="record-actions">{registrationUrl && <a className="button dark" href={registrationUrl} target="_blank" rel="noreferrer">Registration details ↗</a>}<Link href="/dashboard/discover">Discover Events</Link>{calendarEvent && safeDriveLink(calendarEvent.source_url) && <a href={safeDriveLink(calendarEvent.source_url)!} target="_blank" rel="noreferrer">View published schedule ↗</a>}</div></section>}
+      {query.cloned && <p className="success-message">Setup copied. This day is ready for new sessions.</p>}
       <section className="event-facts">
         <div><span>Vehicle</span><strong>{event.vehicles?.name ?? "—"}</strong></div>
         <div><span>Driver</span><strong>{event.driver_name ?? "—"}</strong></div>

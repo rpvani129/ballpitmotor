@@ -12,6 +12,7 @@ const primaryLinks = [
 ];
 
 const moreLinks = [
+  { href: "/dashboard/discover", label: "Discover Events", detail: "Drive NTX schedules and personal plans" },
   { href: "/dashboard/maintenance", label: "Maintenance", detail: "Service schedules and reminders" },
   { href: "/dashboard/tracks", label: "Tracks", detail: "Locations and configurations" },
   { href: "/dashboard/checklists", label: "Checklists", detail: "Templates and event preparation" },
