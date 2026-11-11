@@ -611,6 +611,7 @@ export async function createEvent(formData: FormData) {
   if (error || !event) fail("create");
   refreshMaintenanceViews();
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/discover");
   redirect(`/dashboard/events/${event.id}${clone ? "?cloned=1" : ""}`);
 }
 
@@ -677,6 +678,7 @@ export async function updateEvent(formData: FormData) {
   if (error) redirect(`/dashboard/events/${eventId}/edit?error=save`);
   refreshMaintenanceViews();
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/discover");
   revalidatePath(`/dashboard/events/${eventId}`);
   redirect(`/dashboard/events/${eventId}`);
 }
@@ -695,6 +697,7 @@ export async function deleteEvent(formData: FormData) {
   if (paths.length) await supabase.storage.from("event-attachments").remove(paths);
   refreshMaintenanceViews();
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/discover");
   redirect("/dashboard?deleted=event");
 }
 
