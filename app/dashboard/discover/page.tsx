@@ -9,15 +9,17 @@ export default async function DiscoverPage() {
   const {data:{user}} = await supabase.auth.getUser();
   const {data:member} = await supabase.from('memberships').select('workspace_id,role').eq('user_id',user!.id).eq('status','active').limit(1).maybeSingle();
   if (!member) return <main className="dashboard-main"><h1>Create your workspace first</h1><Link href="/dashboard">Back to Events</Link></main>;
-  const [feed, {data:planned}] = await Promise.all([
+  const [feed, {data:interests,error:interestError}, {data:planned}] = await Promise.all([
     getDriveEvents(),
+    supabase.from('event_interests').select('drive_ntx_event_id').eq('workspace_id',member.workspace_id).eq('user_id',user!.id),
     supabase.from('events').select('id,event_date,source_url').eq('workspace_id',member.workspace_id).like('source_url','https://drive.ballpitmotor.com/calendar?event=%').order('event_date'),
   ]);
   const selected = (planned || []).flatMap(event => { const sourceId = driveSourceId(event.source_url); return sourceId ? [{sourceId,id:event.id,date:event.event_date}] : []; });
   return <main className="dashboard-main">
     <Link className="back-link" href="/dashboard">← My events</Link>
-    <section className="page-title"><p className="eyebrow">DRIVE NORTH TEXAS</p><h1>Discover events</h1><p>Find your next track day. Plan the first day, then clone its setup for Saturday or Sunday. Your plans stay in your workspace.</p></section>
+    <section className="page-title"><p className="eyebrow">DRIVE NORTH TEXAS</p><h1>Discover events</h1><p>Mark events Interested to build your private shortlist. Once you are registered, choose Plan to attend to add the first day to your tracker, then clone for additional days.</p></section>
     {feed.cached && <p className="alert">{feed.unavailable ? 'Drive NTX is unavailable. Please try again later.' : 'Live refresh is temporarily unavailable. Showing saved schedules.'}</p>}
-    <DiscoverEvents events={feed.events} selected={selected} canPlan={['owner','admin','editor'].includes(member.role)} />
+    {interestError && <p className="alert">Your shortlist could not be loaded. Refresh before changing your interests.</p>}
+    <DiscoverEvents initialInterested={(interests || []).map(item=>item.drive_ntx_event_id)} interestsAvailable={!interestError} events={feed.events} selected={selected} canPlan={['owner','admin','editor'].includes(member.role)} />
   </main>;
 }
