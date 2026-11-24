@@ -3,8 +3,12 @@ const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
 const m={exports:{}};
 const logic={exports:{}};
 vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/discover-attendance.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:logic.exports});
+const calendarLogic={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/event-calendar.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:calendarLogic.exports,Intl,Date});
+const calendar={exports:{}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('app/dashboard/EventCalendar.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText,{exports:calendar.exports,Intl,Date,require:n=>n==='@/lib/event-calendar'?calendarLogic.exports:require(n)});
 const code=ts.transpileModule(fs.readFileSync('app/dashboard/discover/DiscoverEvents.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
-vm.runInNewContext(code,{exports:m.exports,Intl,Date,Set,require:n=>n==='@/lib/discover-attendance'?logic.exports:n==='./actions'?{setEventInterest:async()=>({})}:n==='@/lib/drive-ntx'?{safeDriveLink:v=>v}:require(n)});
+vm.runInNewContext(code,{exports:m.exports,Intl,Date,Set,require:n=>n==='../EventCalendar'?calendar.exports:n==='@/lib/event-calendar'?calendarLogic.exports:n==='@/lib/discover-attendance'?logic.exports:n==='./actions'?{setEventInterest:async()=>({})}:n==='@/lib/drive-ntx'?{safeDriveLink:v=>v}:require(n)});
 const html=renderToStaticMarkup(React.createElement(m.exports.default,{
  events:[{id:'apex',title:'APEX at ECR',organizer:'APEX',venue:'ECR',start_at:'2027-01-16T12:00:00Z',end_at:null,source_url:'https://drive.ballpitmotor.com',registration_url:null}],
  selected:[],canPlan:true,initialInterested:['apex'],interestsAvailable:true

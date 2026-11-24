@@ -1,5 +1,7 @@
 'use client';
 import Link from 'next/link';
+import EventCalendar from '../EventCalendar';
+import { calendarDate } from '@/lib/event-calendar';
 import { useMemo, useState } from 'react';
 import type { DriveEvent } from '@/lib/drive-ntx';
 import { safeDriveLink } from '@/lib/drive-ntx';
@@ -8,6 +10,7 @@ import { discoverAttendance, matchesAttendance, type AttendanceFilter } from '@/
 
 type Selection = {sourceId:string; id:string; date:string};
 export default function DiscoverEvents({events,selected,canPlan,initialInterested,interestsAvailable}:{events:DriveEvent[]; selected:Selection[]; canPlan:boolean; initialInterested:string[]; interestsAvailable:boolean}) {
+  const [view,setView] = useState<'list' | 'calendar'>('list');
   const [interested,setInterested] = useState(()=>new Set(initialInterested));
   const [attendanceFilter,setAttendanceFilter] = useState<AttendanceFilter>('all');
   const going = useMemo(()=>new Set(selected.map(item=>item.sourceId)),[selected]);
@@ -35,19 +38,7 @@ export default function DiscoverEvents({events,selected,canPlan,initialIntereste
   const [venue,setVenue]=useState(''); const [organizer,setOrganizer]=useState(''); const [search,setSearch]=useState('');
   const visible=useMemo(()=>events.filter(event=>matchesAttendance(discoverAttendance(event.id,interested,going),attendanceFilter) && (!venue || event.venue===venue) && (!organizer || event.organizer===organizer) && `${event.title} ${event.venue} ${event.organizer || ''}`.toLowerCase().includes(search.toLowerCase())),[events,venue,organizer,search,attendanceFilter,interested,going]);
   const date=(value:string)=>new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'America/Chicago'}).format(new Date(value));
-  return <section className="section-block">
-    <div className="discover-shortlist-tabs" role="group" aria-label="Discover event list">
-      {listFilters.map(filter=><button key={filter.value} className={`button ${attendanceFilter === filter.value ? 'primary' : 'ghost'}`} type="button" aria-pressed={attendanceFilter === filter.value} onClick={()=>setAttendanceFilter(filter.value)}>{filter.label}</button>)}
-    </div>
-    <p className="form-note">Interested is your shortlist. Going means you have added the event to your tracker. Choose Both to compare possible and committed weekends in date order.</p>
-    {saveError && <p className="alert" role="alert">{saveError}</p>}
-    <div className="event-filter-bar">
-      <label>Search<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Event, track or organizer" /></label>
-      <label>Organization<select value={organizer} onChange={e=>setOrganizer(e.target.value)}><option value="">All organizations</option>{[...new Set(events.map(e=>e.organizer).filter((v):v is string=>Boolean(v)))].sort().map(v=><option key={v}>{v}</option>)}</select></label>
-      <label>Track<select value={venue} onChange={e=>setVenue(e.target.value)}><option value="">All tracks</option>{[...new Set(events.map(e=>e.venue))].sort().map(v=><option key={v}>{v}</option>)}</select></label>
-    </div>
-    <p>{visible.length} upcoming event{visible.length===1?'':'s'}</p>
-    <div className="discover-list">{visible.map(event=>{
+  const renderEvent = (event: DriveEvent) => {
       const planned=selected.filter(item=>item.sourceId===event.id);
       const registration=safeDriveLink(event.registration_url); const source=safeDriveLink(event.source_url);
       return <article className="discover-card" key={event.id}>
@@ -62,7 +53,23 @@ export default function DiscoverEvents({events,selected,canPlan,initialIntereste
           {source && <a href={source} target="_blank" rel="noreferrer">View source ↗</a>}
         </div>
       </article>;
-    })}</div>
+  };
+  return <section className="section-block">
+    <div className="discover-shortlist-tabs" role="group" aria-label="Discover event list">
+      {listFilters.map(filter=><button key={filter.value} className={`button ${attendanceFilter === filter.value ? 'primary' : 'ghost'}`} type="button" aria-pressed={attendanceFilter === filter.value} onClick={()=>setAttendanceFilter(filter.value)}>{filter.label}</button>)}
+    </div>
+    <p className="form-note">Interested is your shortlist. Going means you have added the event to your tracker. Choose Both to compare possible and committed weekends in date order.</p>
+    {saveError && <p className="alert" role="alert">{saveError}</p>}
+    <div className="event-filter-bar">
+      <label>Search<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Event, track or organizer" /></label>
+      <label>Organization<select value={organizer} onChange={e=>setOrganizer(e.target.value)}><option value="">All organizations</option>{[...new Set(events.map(e=>e.organizer).filter((v):v is string=>Boolean(v)))].sort().map(v=><option key={v}>{v}</option>)}</select></label>
+      <label>Track<select value={venue} onChange={e=>setVenue(e.target.value)}><option value="">All tracks</option>{[...new Set(events.map(e=>e.venue))].sort().map(v=><option key={v}>{v}</option>)}</select></label>
+    </div>
+    <p>{visible.length} upcoming event{visible.length===1?'':'s'}</p>
+    <div className="event-view-toggle" role="group" aria-label="Event view">
+      {(['list','calendar'] as const).map(mode=><button className={`button ${view===mode?'primary':'ghost'}`} key={mode} type="button" aria-pressed={view===mode} onClick={()=>setView(mode)}>{mode==='list'?'List':'Calendar'}</button>)}
+    </div>
+    {view==='calendar' ? <EventCalendar items={visible.map(event=>({id:event.id,title:event.title,subtitle:event.venue,startDate:calendarDate(event.start_at),endDate:event.end_at?calendarDate(event.end_at):null,status:going.has(event.id)?'going':interested.has(event.id)?'interested':undefined}))} renderEvent={id=>renderEvent(visible.find(event=>event.id===id)!)} /> : <div className="discover-list">{visible.map(renderEvent)}</div>}
     {!visible.length && <div className="empty-state"><strong>{attendanceFilter === "going" ? "No Going events match." : attendanceFilter === "both" ? "No Interested or Going events match." : attendanceFilter === "interested" ? "No interested events match." : "No matching events."}</strong><p>{attendanceFilter === "going" ? "Once registered, use Plan to attend to add an event to your tracker." : "Try adjusting your filters or find more events in All events."}</p></div>}
   </section>;
 }

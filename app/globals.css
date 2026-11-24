@@ -868,3 +868,31 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); outline: 2
 .button.interested-selected { background:#fff2cf; border:1px solid #aa811a; color:#654800; }
 
 .going-flag { background:#e3f3e8; color:#175b32; border:1px solid #75a487; cursor:default; }
+
+/* Calendar and list share the same filtered events and detail actions. */
+.event-view-toggle { display:flex; gap:.5rem; margin:1rem 0; }
+.calendar-toolbar, .calendar-controls, .calendar-detail-heading { display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; justify-content:space-between; }
+.calendar-toolbar h2, .calendar-detail-heading h3 { margin:.5rem 0; }
+.calendar-controls label { display:grid; gap:.25rem; font-size:.875rem; }
+.calendar-controls input { padding:.5rem; max-width:180px; border:1px solid var(--line); background:var(--white); color:var(--ink); }
+.calendar-scroll { overflow-x:auto; border:1px solid var(--line); margin:1rem 0; }
+.calendar-month { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); min-width:700px; background:var(--white); }
+.calendar-weekday { padding:.7rem; background:var(--ink); color:var(--white); font-size:.875rem; font-weight:700; text-align:center; }
+.calendar-day { display:flex; flex-direction:column; gap:.4rem; align-items:stretch; min-height:125px; padding:.5rem; border:0; border-right:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--white); color:var(--ink); text-align:left; cursor:pointer; font:inherit; }
+.calendar-blank { background:var(--paper-deep); cursor:default; }
+.calendar-day-number { font-size:.875rem; font-weight:800; }
+.calendar-today .calendar-day-number { color:var(--red); text-decoration:underline; text-underline-offset:4px; }
+.calendar-day:hover, .calendar-selected { background:#fff2cf; }
+.calendar-day:focus-visible, .calendar-selected { outline:3px solid var(--red); outline-offset:-3px; }
+.calendar-event { display:grid; gap:.25rem; padding:.4rem; background:var(--paper); border-left:3px solid var(--red); overflow-wrap:anywhere; font-size:.875rem; line-height:1.35; }
+.calendar-event strong { font-weight:700; }
+.calendar-event-going { background:#e3f3e8; border-color:#175b32; color:#175b32; }
+.calendar-event-interested { background:#fff2cf; border-color:#aa811a; color:#654800; }
+.calendar-attendance { font-weight:700; }
+.calendar-details { margin-top:1.5rem; }
+.calendar-detail-heading { margin-bottom:1rem; }
+@media(max-width:640px) {
+  .calendar-toolbar, .calendar-controls { justify-content:flex-start; }
+  .calendar-controls .button { padding:.65rem .75rem; }
+  .calendar-controls label { width:100%; }
+}

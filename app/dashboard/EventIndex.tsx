@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import EventCalendar from "./EventCalendar";
 import { useMemo, useState } from "react";
 import { formatLap } from "@/lib/grid";
 
@@ -28,6 +29,7 @@ const fastestLap = (event: EventRow) => {
 };
 
 export default function EventIndex({ events, initialTireSetId = "", initialPadSetId = "", consumableLabel = "" }: { events: EventRow[]; initialTireSetId?: string; initialPadSetId?: string; consumableLabel?: string }) {
+  const [view, setView] = useState<"list" | "calendar">("list");
   const [search, setSearch] = useState("");
   const [track, setTrack] = useState("");
   const [configuration, setConfiguration] = useState("");
@@ -77,7 +79,13 @@ export default function EventIndex({ events, initialTireSetId = "", initialPadSe
       </div>
       {hasConsumableFilter && <div className="event-active-filter"><div><span>{tireSetId ? "Tire usage" : "Pad usage"}</span><strong>Events assigned to {consumableLabel || "selected set"}</strong></div><button className="text-button" type="button" onClick={() => { setTireSetId(""); setPadSetId(""); }}>Clear filter</button></div>}
       <p className="event-result-count">Showing <strong>{visibleEvents.length}</strong> of {events.length} events</p>
-      <div className="event-table" role="table" aria-label="Events">
+      <div className="event-view-toggle" role="group" aria-label="Event view">
+        {(["list", "calendar"] as const).map(mode => <button className={`button ${view === mode ? "primary" : "ghost"}`} key={mode} type="button" aria-pressed={view === mode} onClick={() => setView(mode)}>{mode === "list" ? "List" : "Calendar"}</button>)}
+      </div>
+      {view === "calendar" ? <EventCalendar items={visibleEvents.map(event => ({ id: event.id, title: event.event_name, subtitle: `${event.track_name}${event.vehicles ? ` · ${event.vehicles.name}` : ''}`, startDate: event.event_date }))} renderEvent={id => {
+        const event = visibleEvents.find(item => item.id === id)!;
+        return <article className="discover-card" key={event.id}><div><p className="eyebrow">{event.event_date} · {event.business_id}</p><h2><Link href={`/dashboard/events/${event.id}`}>{event.event_name}</Link></h2><p>{event.track_name} · {event.configuration_name}</p><p>{event.vehicles?.name || "No vehicle assigned"} · {event.organization_name || "Independent"} · {event.status}</p><p>{event.sessions.length} sessions · Best lap: {formatLap(fastestLap(event))}</p></div><Link className="button primary" href={`/dashboard/events/${event.id}`}>View my event</Link></article>;
+      }} /> : <div className="event-table" role="table" aria-label="Events">
         <div className="event-table-head" role="row"><span>Date</span><span>Event</span><span>Vehicle</span><span>Track + configuration</span><span>Fastest lap</span><span>Sessions</span></div>
         {visibleEvents.map((event) => {
           const bestLap = fastestLap(event);
@@ -90,7 +98,7 @@ export default function EventIndex({ events, initialTireSetId = "", initialPadSe
             <span>{event.sessions.length}</span>
           </Link>;
         })}
-      </div>
+      </div>}
       {!visibleEvents.length && <div className="empty-state compact"><strong>No matching events.</strong><p>Change a filter or reset the event index.</p></div>}
     </div>
   );
